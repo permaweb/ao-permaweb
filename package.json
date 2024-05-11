@@ -1,0 +1,16 @@
+{
+  "name": "ao-test-kit",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@permaweb/ao-loader": "^0.0.26"
+  }
+}
