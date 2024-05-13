@@ -2,7 +2,7 @@ import AoLoader from '@permaweb/ao-loader'
 import fs from 'fs'
 
 const aos = fs.readFileSync(process.env.WASM || './AOS.wasm')
-const format = process.env.WASM == './AOS-SQLITE.wasm' ? 'wasm32-unknown-emscripten2' : 'wasm32-unknown-emscripten'
+const format = 'wasm32-unknown-emscripten'
 let memory = null
 
 export async function Send(DataItem) {
@@ -11,10 +11,11 @@ export async function Send(DataItem) {
     if (di[k]) {
       di[k] = DataItem[k]
     } else {
-      di.Tags.concat([{ name: k, value: DataItem[k] }])
+      di.Tags = di.Tags.concat([{ name: k, value: DataItem[k] }])
     }
     return di
   }, createMsg())
+
   const handle = await AoLoader(aos, { format })
   const env = createEnv()
 
@@ -24,7 +25,7 @@ export async function Send(DataItem) {
   }
   memory = result.Memory
 
-  return result.Output?.data
+  return { Messages: result.Messages, Spawns: result.Spawns, Output: result.Output, Assignments: result.Assignments }
 }
 
 function createMsg() {
@@ -34,7 +35,7 @@ function createMsg() {
     Owner: 'OWNER',
     From: 'OWNER',
     Data: '1984',
-    Tags: [{ name: 'Action', value: 'Eval' }],
+    Tags: [],
     'Block-Height': '1',
     Timestamp: Date.now(),
     Module: '4567'
@@ -45,12 +46,18 @@ function createEnv() {
   return {
     Process: {
       Id: '9876',
-      Tags: []
+      Tags: [
+        { name: 'Data-Protocol', value: 'ao' },
+        { name: 'Variant', value: 'ao.TN.1' },
+        { name: 'Type', value: 'Process' }
+      ]
     },
     Module: {
       Id: '4567',
       Tags: [
-
+        { name: 'Data-Protocol', value: 'ao' },
+        { name: 'Variant', value: 'ao.TN.1' },
+        { name: 'Type', value: 'Module' }
       ]
     }
   }
