@@ -40,6 +40,10 @@ In you github repo, you need to setup a few secrets:
 
 > NOTE: Don't have a deployment key, use `~/.aos.json`
 
+## SQLite Process Testing
+
+
+
 ## CONTRIBUTIONS
 
 If you like this approach to building AOS processes, and have suggestions to make improves please

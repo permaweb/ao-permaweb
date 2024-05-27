@@ -2,7 +2,7 @@ import AoLoader from '@permaweb/ao-loader'
 import fs from 'fs'
 
 const aos = fs.readFileSync(process.env.WASM || './AOS.wasm')
-const format = 'wasm32-unknown-emscripten'
+const format = process.env.FORMAT || 'wasm32-unknown-emscripten'
 let memory = null
 
 export async function Send(DataItem) {
