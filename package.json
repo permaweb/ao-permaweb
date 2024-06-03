@@ -2,9 +2,11 @@
   "name": "ao-test-kit",
   "type": "module",
   "version": "1.0.0",
-  "description": "AOS Integration Test Kit",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "test": "node --test test/**/*.test.js",
+    "test:profile": "FORMAT=wasm32-unknown-emscripten2 WASM=./AOS-SQLITE.wasm node --test test/unit/profile/*.test.js",
+    "test:profileRegistry": "FORMAT=wasm32-unknown-emscripten2 WASM=./AOS-SQLITE.wasm node --test test/unit/profileRegistry/*.test.js",
     "test:sqlite": "FORMAT=wasm32-unknown-emscripten2 WASM=./AOS-SQLITE.wasm node --test test/**/*.test.js"
   },
   "keywords": [],
@@ -14,6 +16,8 @@
     "@permaweb/ao-loader": "^0.0.26"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=20"
+  },
+  "devDependencies": {
   }
 }
