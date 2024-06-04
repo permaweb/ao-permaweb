@@ -47,8 +47,10 @@ export function stripAnsiCodes(str) {
 
 export function logSendResult(sendResult, label) {
     console.log(`SEND RESULT: ${label}`);
-    if (sendResult.Output) {
+    if (sendResult?.Output) {
         console.log('---OUTPUT: (printed)', sendResult.Output)
+    } else {
+        console.log('---ERROR:', sendResult)
     }
     if (sendResult.Messages && sendResult.Messages.length > 0) {
         sendResult.Messages.forEach((m, index) => {
