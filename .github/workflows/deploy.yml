@@ -3,7 +3,7 @@ name: Deploy AOS Process
 on:
   push:
     branches:
-      - main
+      - deploy
 
 jobs:
   deploy:
