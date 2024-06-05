@@ -6,7 +6,8 @@ import {findMessageByTarget, logSendResult} from "../../../utils/message.js";
 
 const Send = SendFactory();
 const REGISTRY = 'kFYMezhjcPCZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI'
-
+const AUTHORIZED_ADDRESS_A = 87654;
+const AUTHORIZED_ADDRESS_B = 76543;
 function getTag(msg, tagName) {
     return msg?.Tags?.find(t => t.name === tagName)?.value ?? null;
 }
@@ -17,17 +18,17 @@ test('load source profile', async () => {
 })
 
 test('should update', async () => {
-    const updatedUserName = await Send({ Action: "Update-Profile", Data: JSON.stringify({ UserName: "Steve" }) })
+    const updatedUserName = await Send({ Owner: AUTHORIZED_ADDRESS_A, From: AUTHORIZED_ADDRESS_A, Action: "Update-Profile", Data: JSON.stringify({ UserName: "Steve" }) })
+    logSendResult(updatedUserName, "Update-Profile")
+    const registryMessages = findMessageByTarget(updatedUserName.Messages, REGISTRY)
+    assert.equal(getTag(updatedUserName?.Messages[0], "Status"), "Success")
+})
+
+test('should update with tags', async () => {
+    const updatedUserName = await Send({ Action: "Update-Profile", DisplayName: "El Steverino" })
     logSendResult(updatedUserName, "Update-Profile")
     const registryMessages = findMessageByTarget(updatedUserName.Messages, REGISTRY)
     assert.equal(getTag(updatedUserName.Messages[1], "Status"), "Success")
-
-    // const updatedDescription = await Send({ Action: "Update-Profile", Data: JSON.stringify({ Description: "Terrible" }) })
-    // logMessage('updated2', updatedDescription.Messages[0])
-    // assert.equal(getTag(updatedDescription.Messages[0], "Status"), "Success")
-    //
-    // const updatedBadField = await Send({ Action: "Update-Profile", Data: JSON.stringify({ Nonsense: "Terrible" }) })
-    // assert.equal(getTag(updatedBadField.Messages[0], "Status"), "Error")
 })
 
 // test('should get info', async () => {

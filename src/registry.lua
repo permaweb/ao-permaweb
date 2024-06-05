@@ -1,5 +1,4 @@
 local json = require('json')
-
 local sqlite3 = require('lsqlite3')
 
 Db = Db or sqlite3.open_memory()
@@ -10,6 +9,156 @@ local function decode_message_data(data)
         return false, nil
     end
     return true, decoded_data
+end
+
+local function is_authorized(profile_id, address)
+    if not profile_id then return true end
+    local query = [[
+        SELECT role
+        FROM ao_profile_authorization
+        WHERE profile_id = ? AND delegate_address = ?
+        LIMIT 1
+    ]]
+    local stmt = Db:prepare(query)
+    stmt:bind_values(profile_id, address)
+    local authorized = false
+    for row in stmt:nrows() do
+        authorized = true
+        break
+    end
+    stmt:finalize()
+    return authorized
+end
+
+local function process_profile_action(msg, profile_id_to_check_for_update)
+    if profile_id_to_check_for_update and not is_authorized(profile_id_to_check_for_update, msg.From) then
+        ao.send({
+            Target = msg.From,
+            Action = 'Authorization-Error',
+            Tags = {
+                Status = 'Error',
+                Message = 'Unauthorized to access this handler'
+            }
+        })
+        return
+    end
+    local decode_check, data = decode_message_data(msg.Data)
+    if not decode_check then
+        ao.send({
+            Target = msg.From,
+            Action = 'DB_CODE',
+            Tags = {
+                Status = 'DECODE_FAILED',
+                Message = "Failed to decode data"
+            },
+            Data = { Code = "DECODE_FAILED" }
+        })
+        return
+    end
+
+    local tags = msg.Tags or {}
+
+    --local insert_languages = [[ INSERT INTO ]]
+    local upsert_metadata_stmt = [[
+        INSERT INTO ao_profile_metadata (id, username, profile_image, cover_image, description, display_name, date_updated, date_created)
+            VALUES (:id, :username, :profile_image, :cover_image, :description, :display_name, :date_updated, :date_created)
+            ON CONFLICT(id) DO UPDATE SET
+                username = COALESCE(excluded.username, ao_profile_metadata.username),
+                profile_image = CASE
+                    WHEN excluded.profile_image IS NULL THEN NULL
+                    WHEN excluded.profile_image = 'NULL' THEN NULL
+                    ELSE COALESCE(excluded.profile_image, ao_profile_metadata.profile_image, NULL)
+                END,
+                cover_image = CASE
+                    WHEN excluded.cover_image IS NULL THEN NULL
+                    WHEN excluded.cover_image = 'NULL' THEN NULL
+                    ELSE COALESCE(excluded.cover_image, ao_profile_metadata.cover_image, NULL)
+                END,
+                description = CASE
+                    WHEN excluded.description IS NULL THEN NULL
+                    WHEN excluded.description = 'NULL' THEN NULL
+                    ELSE COALESCE(excluded.description, ao_profile_metadata.description, NULL)
+                END,
+                display_name = CASE
+                    WHEN excluded.display_name IS NULL THEN NULL
+                    WHEN excluded.display_name = 'NULL' THEN NULL
+                    ELSE COALESCE(excluded.display_name, ao_profile_metadata.display_name, NULL)
+                END,
+                date_updated = CASE
+                    WHEN excluded.date_updated IS NULL THEN excluded.date_created
+                    WHEN excluded.date_updated = "NULL" THEN excluded.date_created
+                    ELSE excluded.date_updated
+                END,
+                date_created = CASE
+                    WHEN excluded.date_created IS NULL THEN ao_profile_metadata.date_created
+                    WHEN excluded.date_created = "NULL" THEN ao_profile_metadata.date_created
+                    ELSE excluded.date_created
+                END
+    ]]
+    local upsert_meta = Db:prepare(upsert_metadata_stmt)
+
+    local names_bound = {
+        id = profile_id_to_check_for_update or msg.From,
+        username = tags.UserName or data.UserName,
+        profile_image = tags.ProfileImage or data.ProfileImage,
+        cover_image = tags.CoverImage or data.CoverImage,
+        description = tags.Description or data.Description,
+        display_name = tags.DisplayName or data.DisplayName,
+        date_updated = tags.DateUpdated or tags.DateCreated or data.DateUpdated or data.DateCreated,
+        date_created = tags.DateCreated or data.DateCreated or "NULL"
+    }
+
+    if upsert_meta then
+        upsert_meta:bind_names(names_bound)
+    else
+        ao.send({
+            Target = msg.From,
+            Action = 'DB_CODE',
+            Tags = {
+                Status = 'DB_PREPARE_FAILED',
+                Message = "DB PREPARED QUERY FAILED"
+            },
+            Data = { Code = "Failed to prepare insert statement" }
+        })
+        print("Failed to prepare insert statement")
+        return json.encode({ Code = 'DB_PREPARE_FAILED' })
+    end
+
+    local step_status = upsert_meta:step()
+    if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
+        ao.send({
+            Target = msg.From,
+            Action = 'DB_STEP_CODE',
+            Tags = {
+                Status = 'ERROR',
+                Message = step_status
+            },
+            Data = { DB_STEP_MSG = step_status }
+        })
+        return json.encode({ Code = step_status })
+    end
+
+    ao.send({
+        Target = msg.From,
+        Action = 'Success',
+        Tags = {
+            Status = 'Success',
+            Message = 'Record Inserted'
+        },
+        Data = json.encode(names_bound)
+    })
+
+    upsert_meta:finalize()
+    if (not profile_id_to_check_for_update) then
+        local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? LIMIT 1')
+        check:bind_values(msg.From)
+        if check:step() ~= sqlite3.ROW then
+            local insert_auth = Db:prepare(
+                    'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
+            insert_auth:bind_values(msg.From, data.AuthorizedAddress,  'Admin')
+            insert_auth:step()
+        end
+    end
 end
 
 -- Handlers.add('migrate-database', ... ,  Db:exec [[ ALTER TABLE _ ADD new_field type ]]
@@ -42,8 +191,6 @@ Handlers.add('Prepare-Database', Handlers.utils.hasMatchingTag('Action', 'Prepar
                     date_updated INTEGER NOT NULL
                 );
             ]]
-            -- TODO consider any other foreign key references
-            -- TODO consider primary key
 
             Db:exec [[
                 CREATE TABLE IF NOT EXISTS ao_profile_authorization (
@@ -205,136 +352,17 @@ Handlers.add('Get-Profiles-By-Delegate', Handlers.utils.hasMatchingTag('Action',
             end
         end)
 
+-- Create-Profile Handler
+Handlers.add('Create-Profile', Handlers.utils.hasMatchingTag('Action', 'Create-Profile'),
+    function(msg)
+        process_profile_action(msg, nil)
+    end)
+
+-- Update-Profile Handler
 Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-Profile'),
-        function(msg)
-            if msg.From ~= Owner and msg.From ~= ao.id then
-                ao.send({
-                    Target = msg.From,
-                    Action = 'Authorization-Error',
-                    Tags = {
-                        Status = 'Error',
-                        Message = 'Unauthorized to access this handler'
-                    }
-                })
-                return
-            end
-            local decode_check, data = decode_message_data(msg.Data)
-            if not decode_check then
-                ao.send({
-                    Target = msg.From,
-                    Action = 'DB_CODE',
-                    Tags = {
-                        Status = 'DECODE_FAILED',
-                        Message = "Failed to decode data"
-                    },
-                    Data = { Code = "DECODE_FAILED" }
-                })
-                return
-            end
-
-            local tags = msg.Tags or {}
-
-            --local insert_languages = [[ INSERT INTO ]]
-            local upsert_metadata_stmt = [[
-                INSERT INTO ao_profile_metadata (id, username, profile_image, cover_image, description, display_name, date_updated, date_created)
-                    VALUES (:id, :username, :profile_image, :cover_image, :description, :display_name, :date_updated, :date_created)
-                    ON CONFLICT(id) DO UPDATE SET
-                        username = COALESCE(excluded.username, ao_profile_metadata.username),
-                        profile_image = CASE
-                            WHEN excluded.profile_image IS NULL THEN NULL
-                            WHEN excluded.profile_image = 'NULL' THEN NULL
-                            ELSE COALESCE(excluded.profile_image, ao_profile_metadata.profile_image, NULL)
-                        END,
-                        cover_image = CASE
-                            WHEN excluded.cover_image IS NULL THEN NULL
-                            WHEN excluded.cover_image = 'NULL' THEN NULL
-                            ELSE COALESCE(excluded.cover_image, ao_profile_metadata.cover_image, NULL)
-                        END,
-                        description = CASE
-                            WHEN excluded.description IS NULL THEN NULL
-                            WHEN excluded.description = 'NULL' THEN NULL
-                            ELSE COALESCE(excluded.description, ao_profile_metadata.description, NULL)
-                        END,
-                        display_name = CASE
-                            WHEN excluded.display_name IS NULL THEN NULL
-                            WHEN excluded.display_name = 'NULL' THEN NULL
-                            ELSE COALESCE(excluded.display_name, ao_profile_metadata.display_name, NULL)
-                        END,
-                        date_updated = CASE
-                            WHEN excluded.date_updated IS NULL THEN excluded.date_created
-                            WHEN excluded.date_updated = "NULL" THEN excluded.date_created
-                            ELSE excluded.date_updated
-                        END,
-                        date_created = CASE
-                            WHEN excluded.date_created IS NULL THEN ao_profile_metadata.date_created
-                            WHEN excluded.date_created = "NULL" THEN ao_profile_metadata.date_created
-                            ELSE excluded.date_created
-                        END
-            ]]
-            local upsert_meta = Db:prepare(upsert_metadata_stmt)
-
-            local names_bound = {
-                id = tags.ProfileId or data.ProfileId,
-                username = tags.UserName or data.UserName,
-                profile_image = tags.ProfileImage or data.ProfileImage,
-                cover_image = tags.CoverImage or data.CoverImage,
-                description = tags.Description or data.Description,
-                display_name = tags.DisplayName or data.DisplayName,
-                date_updated = tags.DateUpdated or tags.DateCreated or data.DateUpdated or data.DateCreated,
-                date_created = tags.DateCreated or data.DateCreated or "NULL"
-            }
-
-            if upsert_meta then
-                upsert_meta:bind_names(names_bound)
-            else
-                ao.send({
-                    Target = msg.From,
-                    Action = 'DB_CODE',
-                    Tags = {
-                        Status = 'DB_PREPARE_FAILED',
-                        Message = "DB PREPARED QUERY FAILED"
-                    },
-                    Data = { Code = "Failed to prepare insert statement" }
-                })
-                print("Failed to prepare insert statement")
-                return json.encode({ Code = 'DB_PREPARE_FAILED' })
-            end
-
-            local step_status = upsert_meta:step()
-            if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
-                ao.send({
-                    Target = msg.From,
-                    Action = 'DB_STEP_CODE',
-                    Tags = {
-                        Status = 'ERROR',
-                        Message = step_status
-                    },
-                    Data = { DB_STEP_MSG = step_status }
-                })
-                return json.encode({ Code = step_status })
-            end
-
-            ao.send({
-                Target = msg.From,
-                Action = 'Success',
-                Tags = {
-                    Status = 'Success',
-                    Message = 'Record Inserted'
-                },
-                Data = json.encode(names_bound)
-            })
-
-            upsert_meta:finalize()
-
-            local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? LIMIT 1')
-            check:bind_values(data.AuthorizedAddress)
-            if check:step() ~= sqlite3.ROW then
-                local insert_auth = Db:prepare(
-                        'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
-                insert_auth:bind_values(data.ProfileId, data.AuthorizedCaller.Address, data.AuthorizedCaller.Role)
-                insert_auth:step()
-            end
-        end)
+    function(msg)
+        process_profile_action(msg, msg.Target)
+    end)
 
 Handlers.add('Count-Profiles', Handlers.utils.hasMatchingTag('Action', 'Count-Profiles'),
         function(msg)
@@ -468,7 +496,7 @@ Handlers.add('Read-Profile', Handlers.utils.hasMatchingTag('Action', 'Read-Profi
                 return json.encode({ Code = 'DB_PREPARE_FAILED' })
             end
 
-            local step_status = select_stmt:step() -- 101: SQLITE_DONE
+            local step_status = select_stmt:step()
             if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
                 ao.send({
                     Target = msg.From,
@@ -501,5 +529,4 @@ Handlers.add('Read-Profile', Handlers.utils.hasMatchingTag('Action', 'Read-Profi
                 },
                 Data = json.encode(metadata)
             })
-        end
-)
+        end)

@@ -13,6 +13,8 @@ local json = require('json')
 
 if not Profile then Profile = {} end
 
+if not FirstRun then FirstRun = true end
+
 -- Assets: { Id, Type, Quantity } []
 
 if not Assets then Assets = {} end
@@ -54,7 +56,7 @@ end
 
 local function authorizeRoles(msg)
   -- If Roles is blank, the initial call should be from the owner
-  if msg.From ~= Owner and msg.From ~= ao.id and next(Roles) == nil then
+  if msg.From ~= Owner and msg.From ~= ao.id and #Roles == 0 then
     return false, {
       Target = msg.From,
       Action = 'Authorization-Error',
@@ -76,6 +78,7 @@ local function authorizeRoles(msg)
   if not existingRole and msg.From == Owner then
     -- If Roles table is empty or owner doesn't exist, authorize the owner
     table.insert(Roles, { Role = 'Owner', AddressOrProfile = msg.From })
+	  existingRole = true
   end
 
   if not existingRole then
@@ -152,30 +155,34 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 				return
 			end
 
-			Profile.UserName = data.UserName or Profile.UserName or ''
-			Profile.DisplayName = data.DisplayName or Profile.DisplayName or ''
-			Profile.Description = data.Description or Profile.Description or ''
-			Profile.CoverImage = data.CoverImage or Profile.CoverImage or ''
-			Profile.ProfileImage = data.ProfileImage or Profile.ProfileImage or ''
+			Profile.UserName = msg.Tags.UserName or data.UserName or Profile.UserName or ''
+			Profile.DisplayName = msg.Tags.DisplayName or data.DisplayName or Profile.DisplayName or ''
+			Profile.Description = msg.Tags.Description or data.Description or Profile.Description or ''
+			Profile.CoverImage = msg.Tags.CoverImage or data.CoverImage or Profile.CoverImage or ''
+			Profile.ProfileImage = msg.Tags.ProfileImage or data.ProfileImage or Profile.ProfileImage or ''
 			Profile.DateCreated = Profile.DateCreated or msg.Timestamp
 			Profile.DateUpdated = msg.Timestamp
 
-			ao.send({
-				Target = REGISTRY,
-				Action = 'Update-Profile',
-				Data = json.encode({
-					ProfileId = ao.id,
-					AuthorizedAddress = msg.From,
-					UserName = data.UserName or nil,
-					DisplayName = data.DisplayName or nil,
-					Description = data.Description or nil,
-					CoverImage = data.CoverImage or nil,
-					ProfileImage = data.ProfileImage or nil,
-					DateCreated = Profile.DateCreated,
-					DateUpdated = Profile.DateUpdated
-				}),
-				Tags = msg.Tags
-			})
+			if not FirstRun then
+    	        ao.assign({Processes = { REGISTRY }, Message = msg.id})
+            else
+				ao.send({
+					Target = REGISTRY,
+					Action = 'Create-Profile',
+					Data = json.encode({
+						AuthorizedAddress = msg.From,
+						UserName = Profile.UserName or nil,
+						DisplayName = Profile.DisplayName or nil,
+						Description = Profile.Description or nil,
+						CoverImage = Profile.CoverImage or nil,
+						ProfileImage = Profile.ProfileImage or nil,
+						DateCreated = Profile.DateCreated,
+						DateUpdated = Profile.DateUpdated
+					}),
+					Tags = msg.Tags
+				})
+				FirstRun=false
+            end
 
 			ao.send({
 				Target = msg.From,
