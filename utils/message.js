@@ -47,20 +47,22 @@ export function stripAnsiCodes(str) {
 
 export function logSendResult(sendResult, label) {
     console.log(`SEND RESULT: ${label}`);
-    if (sendResult?.Output) {
-        console.log('---OUTPUT: (printed)', sendResult.Output)
-    } else {
+    if (typeof sendResult == 'string') {
         console.log('---ERROR:', sendResult)
-    }
-    if (sendResult.Messages && sendResult.Messages.length > 0) {
-        sendResult.Messages.forEach((m, index) => {
-            console.log(`---MESSAGE INDEX ${index}`)
-            console.log(`----TAGS:`)
-            m.Tags.forEach(t => {
-                console.log(t)
+    } else {
+        if (sendResult?.Output) {
+            console.log('---OUTPUT: (printed)', sendResult.Output, sendResult.Output)
+        }
+        if (sendResult.Messages && sendResult.Messages.length > 0) {
+            sendResult.Messages.forEach((m, index) => {
+                console.log(`---MESSAGE INDEX ${index}`)
+                console.log(`----TAGS:`)
+                m.Tags.forEach(t => {
+                    console.log(t)
+                })
+                console.log(`----DATA:`)
+                console.log(m.Data)
             })
-            console.log(`----DATA:`)
-            console.log(m.Data)
-        })
+        }
     }
 }

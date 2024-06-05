@@ -48,9 +48,9 @@ Handlers.add('Prepare-Database', Handlers.utils.hasMatchingTag('Action', 'Prepar
             Db:exec [[
                 CREATE TABLE IF NOT EXISTS ao_profile_authorization (
                     profile_id TEXT NOT NULL,
-                    caller_address TEXT NOT NULL,
+                    delegate_address TEXT NOT NULL,
                     role TEXT NOT NULL,
-                    PRIMARY KEY (profile_id, caller_address),
+                    PRIMARY KEY (profile_id, delegate_address),
                     FOREIGN KEY (profile_id) REFERENCES ao_profile_metadata (id) ON DELETE CASCADE
                 );
             ]]
@@ -134,7 +134,7 @@ Handlers.add('Get-Metadata-By-ProfileIds', Handlers.utils.hasMatchingTag('Action
         end)
 
 -- Data - { Address }
-Handlers.add('Get-Profiles-By-Address', Handlers.utils.hasMatchingTag('Action', 'Get-Profiles-By-Address'),
+Handlers.add('Get-Profiles-By-Delegate', Handlers.utils.hasMatchingTag('Action', 'Get-Profiles-By-Delegate'),
         function(msg)
             local decode_check, data = decode_message_data(msg.Data)
 
@@ -154,9 +154,9 @@ Handlers.add('Get-Profiles-By-Address', Handlers.utils.hasMatchingTag('Action', 
                 local associated_profiles = {}
 
                 local authorization_lookup = Db:prepare([[
-                    SELECT profile_id, caller_address, role
+                    SELECT profile_id, delegate_address, role
                         FROM ao_profile_authorization
-                        WHERE caller_address = ?
+                        WHERE delegate_address = ?
 			    ]])
 
                 authorization_lookup:bind_values(data.Address)
@@ -164,7 +164,7 @@ Handlers.add('Get-Profiles-By-Address', Handlers.utils.hasMatchingTag('Action', 
                 for row in authorization_lookup:nrows() do
                     table.insert(associated_profiles, {
                         ProfileId = row.profile_id,
-                        CallerAddress = row.caller_address,
+                        CallerAddress = row.delegate_address,
                         Role = row.role
                     })
                 end
@@ -219,6 +219,21 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
                 return
             end
             local decode_check, data = decode_message_data(msg.Data)
+            if not decode_check then
+                ao.send({
+                    Target = msg.From,
+                    Action = 'DB_CODE',
+                    Tags = {
+                        Status = 'DECODE_FAILED',
+                        Message = "Failed to decode data"
+                    },
+                    Data = { Code = "DECODE_FAILED" }
+                })
+                return
+            end
+
+            local tags = msg.Tags or {}
+
             --local insert_languages = [[ INSERT INTO ]]
             local upsert_metadata_stmt = [[
                 INSERT INTO ao_profile_metadata (id, username, profile_image, cover_image, description, display_name, date_updated, date_created)
@@ -256,24 +271,21 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
                             ELSE excluded.date_created
                         END
             ]]
-
-            local insert_or_update_meta = Db:prepare(upsert_metadata_stmt)
-
-            local bind = -1;
+            local upsert_meta = Db:prepare(upsert_metadata_stmt)
 
             local names_bound = {
-                id = data.ProfileId,
-                username = data.UserName,
-                profile_image = data.ProfileImage,
-                cover_image = data.CoverImage,
-                description = data.Description,
-                display_name = data.DisplayName,
-                profile_image = data.ProfileImage,
-                date_updated = data.DateUpdated or data.DateCreated,
-                date_created = data.DateCreated or "NULL"
+                id = tags.ProfileId or data.ProfileId,
+                username = tags.UserName or data.UserName,
+                profile_image = tags.ProfileImage or data.ProfileImage,
+                cover_image = tags.CoverImage or data.CoverImage,
+                description = tags.Description or data.Description,
+                display_name = tags.DisplayName or data.DisplayName,
+                date_updated = tags.DateUpdated or tags.DateCreated or data.DateUpdated or data.DateCreated,
+                date_created = tags.DateCreated or data.DateCreated or "NULL"
             }
-            if insert_or_update_meta then
-                bind = insert_or_update_meta:bind_names(names_bound)
+
+            if upsert_meta then
+                upsert_meta:bind_names(names_bound)
             else
                 ao.send({
                     Target = msg.From,
@@ -288,7 +300,7 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
                 return json.encode({ Code = 'DB_PREPARE_FAILED' })
             end
 
-            local step_status = insert_or_update_meta:step() -- 101: SQLITE_DONE
+            local step_status = upsert_meta:step()
             if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
                 ao.send({
                     Target = msg.From,
@@ -312,23 +324,16 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
                 Data = json.encode(names_bound)
             })
 
-            insert_or_update_meta:finalize()
+            upsert_meta:finalize()
 
-            local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE caller_address = ? LIMIT 1')
+            local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? LIMIT 1')
             check:bind_values(data.AuthorizedAddress)
-            --AuthorizedCaller: { Address: AUTHORIZED_ADDRESS_A, Role: 'admin' }
             if check:step() ~= sqlite3.ROW then
                 local insert_auth = Db:prepare(
-                        'INSERT INTO ao_profile_authorization (profile_id, caller_address, role) VALUES (?, ?, ?)')
+                        'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
                 insert_auth:bind_values(data.ProfileId, data.AuthorizedCaller.Address, data.AuthorizedCaller.Role)
                 insert_auth:step()
             end
-            --local row
-            --local select_stmt = Db:prepare('SELECT * FROM ao_profile_metadata WHERE id = "12345"')
-            --local result = select_stmt:step()
-            --row = select_stmt:get_named_values()
-            --print((row.username .. tostring(row.date_created)))
-            --select_stmt:finalize()
         end)
 
 Handlers.add('Count-Profiles', Handlers.utils.hasMatchingTag('Action', 'Count-Profiles'),
@@ -379,7 +384,6 @@ Handlers.add('Read-Metadata', Handlers.utils.hasMatchingTag('Action', 'Read-Meta
                 print("Error: ", err)
                 return
             end
-            print(status);
             ao.send({
                 Target = msg.From,
                 Action = 'Read-Metadata-Success',
@@ -398,10 +402,10 @@ Handlers.add('Read-Auth', Handlers.utils.hasMatchingTag('Action', 'Read-Auth'),
         function(msg)
             local metadata = {}
             local status, err = pcall(function()
-                for row in Db:nrows('SELECT profile_id, caller_address, role FROM ao_profile_authorization') do
+                for row in Db:nrows('SELECT profile_id, delegate_address, role FROM ao_profile_authorization') do
                     table.insert(metadata, {
                         ProfileId = row.profile_id,
-                        CallerAddress = row.caller_address,
+                        CallerAddress = row.delegate_address,
                         Role = row.role,
                     })
                 end
@@ -410,7 +414,6 @@ Handlers.add('Read-Auth', Handlers.utils.hasMatchingTag('Action', 'Read-Auth'),
                 print("Error: ", err)
                 return
             end
-            print(status);
             ao.send({
                 Target = msg.From,
                 Action = 'Read-Metadata-Success',
@@ -420,7 +423,6 @@ Handlers.add('Read-Auth', Handlers.utils.hasMatchingTag('Action', 'Read-Auth'),
                 },
                 Data = json.encode(metadata)
             })
-
             return json.encode(metadata)
         end)
 
@@ -490,8 +492,6 @@ Handlers.add('Read-Profile', Handlers.utils.hasMatchingTag('Action', 'Read-Profi
                 DateCreated = row.date_created,
                 DateUpdated = row.date_updated
             }
-
-            print(json.encode(metadata))
             ao.send({
                 Target = msg.From,
                 Action = 'Success',
