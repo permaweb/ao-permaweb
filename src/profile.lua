@@ -13,7 +13,7 @@ local json = require('json')
 
 if not Profile then Profile = {} end
 
-if not FirstRun then Firstrun = true end
+if not FirstRun then FirstRun = true end
 
 -- Assets: { Id, Type, Quantity } []
 
@@ -56,7 +56,7 @@ end
 
 local function authorizeRoles(msg)
   -- If Roles is blank, the initial call should be from the owner
-  if msg.From ~= msg.Owner and msg.From ~= ao.id and #Roles == 0 then
+  if msg.From ~= Owner and msg.From ~= ao.id and #Roles == 0 then
     return false, {
       Target = msg.From,
       Action = 'Authorization-Error',
@@ -75,7 +75,7 @@ local function authorizeRoles(msg)
     end
   end
 
-  if not existingRole and msg.From == msg.Owner then
+  if not existingRole and msg.From == Owner then
     -- If Roles table is empty or owner doesn't exist, authorize the owner
     table.insert(Roles, { Role = 'Owner', AddressOrProfile = msg.From })
 	  existingRole = true
@@ -110,7 +110,7 @@ Handlers.add('Info', Handlers.utils.hasMatchingTag('Action', 'Info'),
 				Profile = Profile,
 				Assets = Assets,
 				Collections = Collections,
-				Owner = msg.Owner
+				Owner = Owner
 			})
 		})
 	end)
@@ -262,7 +262,7 @@ Handlers.add('Debit-Notice', Handlers.utils.hasMatchingTag('Action', 'Debit-Noti
 			end
 
 			ao.send({
-				Target = msg.Owner,
+				Target = Owner,
 				Action = 'Transfer-Success',
 				Tags = {
 					Status = 'Success',
@@ -318,7 +318,7 @@ Handlers.add('Credit-Notice', Handlers.utils.hasMatchingTag('Action', 'Credit-No
 			table.insert(Assets, { Id = msg.From, Quantity = msg.Tags.Quantity })
 
 			ao.send({
-				Target = msg.Owner,
+				Target = Owner,
 				Action = 'Transfer-Success',
 				Tags = {
 					Status = 'Success',
@@ -585,7 +585,7 @@ Handlers.add('Action-Response', Handlers.utils.hasMatchingTag('Action', 'Action-
 			if msg.Tags['Handler'] then response_tags.Handler = msg.Tags['Handler'] end
 
 			ao.send({
-				Target = msg.Owner,
+				Target = Owner,
 				Action = 'Action-Response',
 				Tags = response_tags
 			})
