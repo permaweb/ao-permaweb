@@ -52,7 +52,7 @@ local function decode_message_data(data)
 	return true, decoded_data
 end
 
-local function authorizeRoles(msg, Roles)
+local function authorizeRoles(msg)
   -- If Roles is blank, the initial call should be from the owner
   if msg.From ~= Owner and msg.From ~= ao.id and next(Roles) == nil then
     return false, {
