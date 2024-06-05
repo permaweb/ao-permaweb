@@ -13,8 +13,7 @@ local json = require('json')
 
 if not Profile then Profile = {} end
 
-if not FirstRun then FirstRun = true end
-
+if not FirstRunCompleted then FirstRunCompleted = false end
 -- Assets: { Id, Type, Quantity } []
 
 if not Assets then Assets = {} end
@@ -62,7 +61,7 @@ local function authorizeRoles(msg)
       Action = 'Authorization-Error',
       Tags = {
         Status = 'Error',
-        Message = 'Initial Roles not set, owner is not authorized for this handler'
+        ErrorMessage = 'Initial Roles not set, owner is not authorized for this handler'
       }
     }
   end
@@ -87,7 +86,7 @@ local function authorizeRoles(msg)
       Action = 'Authorization-Error',
       Tags = {
         Status = 'Error',
-        Message = 'Unauthorized to access this handler'
+        ErrorMessage = 'Unauthorized to access this handler'
       }
     }
   end
@@ -163,8 +162,8 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 			Profile.DateCreated = Profile.DateCreated or msg.Timestamp
 			Profile.DateUpdated = msg.Timestamp
 
-			if not FirstRun then
-    	        ao.assign({Processes = { REGISTRY }, Message = msg.Id})
+			if FirstRunCompleted then
+    	        ao.assign({Processes = { REGISTRY }, Message = msg.id})
             else
 				ao.send({
 					Target = REGISTRY,
@@ -181,7 +180,7 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 					}),
 					Tags = msg.Tags
 				})
-				FirstRun=false
+				FirstRunCompleted=true
             end
 
 			ao.send({
