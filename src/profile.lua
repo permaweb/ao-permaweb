@@ -17,6 +17,10 @@ if not Profile then Profile = {} end
 
 if not Assets then Assets = {} end
 
+-- Collections: { Id, Name, Items, SortOrder } []
+
+if not Collections then Collections = {} end
+
 if not Roles then Roles = {} end
 
 REGISTRY = 'kFYMezhjcPCZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI'
@@ -88,6 +92,12 @@ local function authorizeRoles(msg, Roles)
   return true
 end
 
+local function sort_collections()
+    table.sort(Collections, function(a, b)
+        return a.SortOrder < b.SortOrder
+    end)
+end
+
 Handlers.add('Info', Handlers.utils.hasMatchingTag('Action', 'Info'),
 	function(msg)
 		ao.send({
@@ -96,6 +106,7 @@ Handlers.add('Info', Handlers.utils.hasMatchingTag('Action', 'Info'),
 			Data = json.encode({
 				Profile = Profile,
 				Assets = Assets,
+				Collections = Collections,
 				Owner = Owner
 			})
 		})
@@ -382,6 +393,179 @@ Handlers.add('Add-Uploaded-Asset', Handlers.utils.hasMatchingTag('Action', 'Add-
 			})
 		end
 	end)
+
+-- Data - { Id, Name, Items }
+Handlers.add('Add-Collection', Handlers.utils.hasMatchingTag('Action', 'Add-Collection'),
+	function(msg)
+	    local authorizeResult, message = authorizeRoles(msg)
+	    if not authorizeResult then
+            ao.send(message)
+            return
+        end
+
+		local decode_check, data = decode_message_data(msg.Data)
+
+		if decode_check and data then
+			if not data.Id or not data.Name then
+				ao.send({
+					Target = msg.From,
+					Action = 'Input-Error',
+					Tags = {
+						Status = 'Error',
+						Message =
+						'Invalid arguments, required { Id, Name }'
+					}
+				})
+				return
+			end
+
+			if not check_valid_address(data.Id) then
+				ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Collection Id must be a valid address' } })
+				return
+			end
+
+			local exists = false
+			for _, collection in ipairs(Collections) do
+				if collection.Id == data.Id then
+					exists = true
+					break
+				end
+			end
+
+			-- Ensure the highest SortOrder for new items
+			local highestSortOrder = 0
+			for _, collection in ipairs(Collections) do
+				if collection.SortOrder > highestSortOrder then
+					highestSortOrder = collection.SortOrder
+				end
+			end
+
+			if not exists then
+				table.insert(Collections, { Id = data.Id, Name = data.Name, SortOrder = highestSortOrder + 1 })
+				sort_collections()
+				ao.send({
+					Target = msg.From,
+					Action = 'Add-Collection-Success',
+					Tags = {
+						Status = 'Success',
+						Message = 'Collection added'
+					}
+				})
+			else
+				ao.send({
+					Target = msg.From,
+					Action = 'Validation-Error',
+					Tags = {
+						Status = 'Error',
+						Message = string.format(
+							'Collection with Id %s already exists', data.Id)
+					}
+				})
+			end
+		else
+			ao.send({
+				Target = msg.From,
+				Action = 'Input-Error',
+				Tags = {
+					Status = 'Error',
+					Message = string.format(
+						'Failed to parse data, received: %s. %s.', msg.Data,
+						'Data must be an object - { Id, Name, Items }')
+				}
+			})
+		end
+	end)
+
+-- Data - { Ids: [Id1, Id2, ..., IdN] }
+Handlers.add('Update-Collection-Sort', Handlers.utils.hasMatchingTag('Action', 'Update-Collection-Sort'),
+    function(msg)
+        local authorizeResult, message = authorizeRoles(msg)
+        if not authorizeResult then
+            ao.send(message)
+            return
+        end
+
+        local decode_check, data = decode_message_data(msg.Data)
+
+        if decode_check and data then
+            if not data.Ids then
+                ao.send({
+                    Target = msg.From,
+                    Action = 'Input-Error',
+                    Tags = {
+                        Status = 'Error',
+                        Message = 'Invalid arguments, required { Ids }'
+                    }
+                })
+                return
+            end
+
+            -- Validate all IDs exist in the Collections table
+            local valid_ids = {}
+            local id_set = {}
+            for _, id in ipairs(data.Ids) do
+                for _, collection in ipairs(Collections) do
+                    if collection.Id == id then
+                        table.insert(valid_ids, id)
+                        id_set[id] = true
+                        break
+                    end
+                end
+            end
+
+            -- Update SortOrder for valid collections
+            for i, id in ipairs(valid_ids) do
+                for _, collection in ipairs(Collections) do
+                    if collection.Id == id then
+                        collection.SortOrder = i
+                    end
+                end
+            end
+
+            -- Place any collections not in the valid_ids list at the end, preserving their relative order
+            local remaining_collections = {}
+            for _, collection in ipairs(Collections) do
+                if not id_set[collection.Id] then
+                    table.insert(remaining_collections, collection)
+                end
+            end
+
+            -- Sort remaining collections by their current SortOrder
+            table.sort(remaining_collections, function(a, b)
+                return a.SortOrder < b.SortOrder
+            end)
+
+            -- Assign new SortOrder to remaining collections
+            local new_sort_order = #valid_ids + 1
+            for _, collection in ipairs(remaining_collections) do
+                collection.SortOrder = new_sort_order
+                new_sort_order = new_sort_order + 1
+            end
+
+            -- Sort collections by SortOrder
+            sort_collections()
+
+            ao.send({
+                Target = msg.From,
+                Action = 'Update-Collection-Sort-Success',
+                Tags = {
+                    Status = 'Success',
+                    Message = 'Collections sorted'
+                }
+            })
+        else
+            ao.send({
+                Target = msg.From,
+                Action = 'Input-Error',
+                Tags = {
+                    Status = 'Error',
+                    Message = string.format(
+                        'Failed to parse data, received: %s. %s.', msg.Data,
+                        'Data must be an object - { Ids }')
+                }
+            })
+        end
+    end)
 
 Handlers.add('Action-Response', Handlers.utils.hasMatchingTag('Action', 'Action-Response'),
 	function(msg)
