@@ -13,12 +13,12 @@ local json = require('json')
 
 if not Profile then Profile = {} end
 
--- Assets: { Id, Quantity } []
+-- Assets: { Id, Type, Quantity } []
 
 if not Assets then Assets = {} end
 
 if not Roles then Roles = {} end
---hello
+
 REGISTRY = 'kFYMezhjcPCZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI'
 
 local function check_valid_address(address)
@@ -38,10 +38,6 @@ local function check_required_data(data, required_fields)
 	return false
 end
 
-local function check_valid_amount(data)
-	return (math.type(tonumber(data)) == 'integer' or math.type(tonumber(data)) == 'float') and bint(data) > 0
-end
-
 local function decode_message_data(data)
 	local status, decoded_data = pcall(json.decode, data)
 
@@ -52,40 +48,44 @@ local function decode_message_data(data)
 	return true, decoded_data
 end
 
-local function validate_transfer_data(msg)
-	local decodeCheck, data = decode_message_data(msg.Data)
+local function authorizeRoles(msg, Roles)
+  -- If Roles is blank, the initial call should be from the owner
+  if msg.From ~= Owner and msg.From ~= ao.id and next(Roles) == nil then
+    return false, {
+      Target = msg.From,
+      Action = 'Authorization-Error',
+      Tags = {
+        Status = 'Error',
+        Message = 'Initial Roles not set, owner is not authorized for this handler'
+      }
+    }
+  end
 
-	if not decodeCheck or not data then
-		return nil, string.format('Failed to parse data, received: %s. %s.', msg.Data,
-			'Data must be an object - { Target, Recipient, Quantity }')
-	end
+  local existingRole = false
+  for _, role in pairs(Roles) do
+    if role.AddressOrProfile == msg.From then
+      existingRole = true
+      break
+    end
+  end
 
-	-- Check if target, recipient and quantity are present
-	if not data.Target or not data.Recipient or not data.Quantity then
-		return nil, 'Invalid arguments, required { Target, Recipient, Quantity }'
-	end
+  if not existingRole and msg.From == Owner then
+    -- If Roles table is empty or owner doesn't exist, authorize the owner
+    table.insert(Roles, { Role = 'Owner', AddressOrProfile = msg.From })
+  end
 
-	-- Check if target is a valid address
-	if not check_valid_address(data.Target) then
-		return nil, 'Target must be a valid address'
-	end
+  if not existingRole then
+    return false, {
+      Target = msg.From,
+      Action = 'Authorization-Error',
+      Tags = {
+        Status = 'Error',
+        Message = 'Unauthorized to access this handler'
+      }
+    }
+  end
 
-	-- Check if recipient is a valid address
-	if not check_valid_address(data.Recipient) then
-		return nil, 'Recipient must be a valid address'
-	end
-
-	-- Check if quantity is a valid integer greater than zero
-	if not check_valid_amount(data.Quantity) then
-		return nil, 'Quantity must be an integer greater than zero'
-	end
-
-	-- Recipient cannot be sender
-	if msg.From == data.Recipient then
-		return nil, 'Recipient cannot be sender'
-	end
-
-	return data
+  return true
 end
 
 Handlers.add('Info', Handlers.utils.hasMatchingTag('Action', 'Info'),
@@ -95,13 +95,13 @@ Handlers.add('Info', Handlers.utils.hasMatchingTag('Action', 'Info'),
 			Action = 'Read-Success',
 			Data = json.encode({
 				Profile = Profile,
-				Assets = Assets
+				Assets = Assets,
+				Owner = Owner
 			})
 		})
 	end)
 
 -- Data - { UserName?, DisplayName?, Description?, CoverImage, ProfileImage }
-Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-Profile'),
 --[[
 This function handles the 'Update-Profile' action. It first checks if the sender of the message is authorized to perform this action.
 If the sender is authorized, it then decodes the data from the message. If the data is valid and contains at least one of the required fields,
@@ -117,18 +117,13 @@ msg:
 Returns:
 None. This function sends messages to the sender or the registry but does not return anything.
 --]]
+Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-Profile'),
 	function(msg)
-		if msg.From ~= Owner and msg.From ~= ao.id then
-			ao.send({
-				Target = msg.From,
-				Action = 'Authorization-Error',
-				Tags = {
-					Status = 'Error',
-					Message = 'Unauthorized to access this handler'
-				}
-			})
-			return
-		end
+	    local authorizeResult, message = authorizeRoles(msg)
+	    if not authorizeResult then
+            ao.send(message)
+            return
+        end
 
 		local decode_check, data = decode_message_data(msg.Data)
 
@@ -146,10 +141,7 @@ None. This function sends messages to the sender or the registry but does not re
 				return
 			end
 
-			--if (data.UserName) then
-			--	Profile.UserName = data.UserName
-			--end
-			Profile.Username = data.UserName or Profile.Username or ''
+			Profile.UserName = data.UserName or Profile.UserName or ''
 			Profile.DisplayName = data.DisplayName or Profile.DisplayName or ''
 			Profile.Description = data.Description or Profile.Description or ''
 			Profile.CoverImage = data.CoverImage or Profile.CoverImage or ''
@@ -163,7 +155,7 @@ None. This function sends messages to the sender or the registry but does not re
 				Data = json.encode({
 					ProfileId = ao.id,
 					AuthorizedAddress = msg.From,
-					Username = data.Username or nil,
+					UserName = data.UserName or nil,
 					DisplayName = data.DisplayName or nil,
 					Description = data.Description or nil,
 					CoverImage = data.CoverImage or nil,
@@ -190,7 +182,7 @@ None. This function sends messages to the sender or the registry but does not re
 					Status = 'Error',
 					EMessage = string.format(
 						'Failed to parse data, received: %s. %s.', msg.Data,
-						'Data must be an object - { Username }')
+						'Data must be an object - { UserName, DisplayName, Description, CoverImage, ProfileImage }')
 				}
 			})
 		end
@@ -199,106 +191,73 @@ None. This function sends messages to the sender or the registry but does not re
 -- Data - { Target, Recipient, Quantity }
 Handlers.add('Transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'),
 	function(msg)
-		if msg.From ~= Owner and msg.From ~= ao.id then
-			ao.send({
-				Target = msg.From,
-				Action = 'Authorization-Error',
-				Tags = {
-					Status = 'Error',
-					Message = 'Unauthorized to access this handler'
-				}
-			})
-			return
-		end
+	    local authorizeResult, message = authorizeRoles(msg)
+	    if not authorizeResult then
+            ao.send(message)
+            return
+        end
 
-		local data, error = validate_transfer_data(msg)
-
-		if data then
-			local forwardedTags = {}
-
-			for tagName, tagValue in pairs(msg) do
-				if string.sub(tagName, 1, 2) == 'X-' then
-					forwardedTags[tagName] = tagValue
-				end
-			end
-
-			ao.send({
-				Target = data.Target,
-				Action = 'Transfer',
-				Tags = forwardedTags,
-				Data = json.encode({
-					Recipient = data.Recipient,
-					Quantity = data.Quantity
-				})
-			})
-		else
-			ao.send({
-				Target = msg.From,
-				Action = 'Transfer-Error',
-				Tags = { Status = 'Error', Message = error or 'Error transferring balances' }
-			})
-		end
+		ao.send({
+			Target = msg.Tags.Target,
+			Action = 'Transfer',
+			Tags = msg.Tags,
+			Data = msg.Data
+		})
 	end)
 
 -- Data - { Recipient, Quantity }
 Handlers.add('Debit-Notice', Handlers.utils.hasMatchingTag('Action', 'Debit-Notice'),
 	function(msg)
-		local decode_check, data = decode_message_data(msg.Data)
-
-		if decode_check and data then
-			if not data.Recipient or not data.Quantity then
-				ao.send({
-					Target = msg.From,
-					Action = 'Input-Error',
-					Tags = {
-						Status = 'Error',
-						Message =
-						'Invalid arguments, required { Recipient, Quantity }'
-					}
-				})
-				return
-			end
-
-			if not check_valid_address(data.Recipient) then
-				ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Recipient must be a valid address' } })
-				return
-			end
-
-			local asset_index = -1
-			for i, asset in ipairs(Assets) do
-				if asset.Id == msg.From then
-					asset_index = i
-					break
-				end
-			end
-
-			if asset_index > -1 then
-				local updated_quantity = tonumber(Assets[asset_index].Quantity) - tonumber(data.Quantity)
-
-				if updated_quantity <= 0 then
-					table.remove(Assets, asset_index)
-				else
-					Assets[asset_index].Quantity = tostring(updated_quantity)
-				end
-
-				ao.send({
-					Target = Owner,
-					Action = 'Transfer-Success',
-					Tags = {
-						Status = 'Success',
-						Message = 'Balance transferred'
-					}
-				})
-			end
-		else
+		if not msg.Tags.Recipient or not msg.Tags.Quantity then
 			ao.send({
 				Target = msg.From,
 				Action = 'Input-Error',
 				Tags = {
 					Status = 'Error',
-					Message = string.format(
-						'Failed to parse data, received: %s. %s.', msg.Data,
-						'Data must be an object - { Recipient, Quantity }')
+					Message =
+					'Invalid arguments, required { Recipient, Quantity }'
+				}
+			})
+			return
+		end
+
+		if not check_valid_address(msg.Tags.Recipient) then
+			ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Recipient must be a valid address' } })
+			return
+		end
+
+		local asset_index = -1
+		for i, asset in ipairs(Assets) do
+			if asset.Id == msg.From then
+				asset_index = i
+				break
+			end
+		end
+
+		if asset_index > -1 then
+			local updated_quantity = tonumber(Assets[asset_index].Quantity) - tonumber(msg.Tags.Quantity)
+
+			if updated_quantity <= 0 then
+				table.remove(Assets, asset_index)
+			else
+				Assets[asset_index].Quantity = tostring(updated_quantity)
+			end
+
+			ao.send({
+				Target = Owner,
+				Action = 'Transfer-Success',
+				Tags = {
+					Status = 'Success',
+					Message = 'Balance transferred'
+				}
+			})
+		else
+			ao.send({
+				Target = msg.From,
+				Action = 'Transfer-Failed',
+				Tags = {
+					Status = 'Error',
+					Message = 'No asset found to debit'
 				}
 			})
 		end
@@ -307,60 +266,45 @@ Handlers.add('Debit-Notice', Handlers.utils.hasMatchingTag('Action', 'Debit-Noti
 -- Data - { Sender, Quantity }
 Handlers.add('Credit-Notice', Handlers.utils.hasMatchingTag('Action', 'Credit-Notice'),
 	function(msg)
-		local decode_check, data = decode_message_data(msg.Data)
-
-		if decode_check and data then
-			if not data.Sender or not data.Quantity then
-				ao.send({
-					Target = msg.From,
-					Action = 'Input-Error',
-					Tags = {
-						Status = 'Error',
-						Message =
-						'Invalid arguments, required { Sender, Quantity }'
-					}
-				})
-				return
-			end
-
-			if not check_valid_address(data.Sender) then
-				ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Sender must be a valid address' } })
-				return
-			end
-
-			local asset_index = -1
-			for i, asset in ipairs(Assets) do
-				if asset.Id == msg.From then
-					asset_index = i
-					break
-				end
-			end
-
-			if asset_index > -1 then
-				local updated_quantity = tonumber(Assets[asset_index].Quantity) + tonumber(data.Quantity)
-
-				Assets[asset_index].Quantity = tostring(updated_quantity)
-			else
-				table.insert(Assets, { Id = msg.From, Quantity = data.Quantity })
-
-				ao.send({
-					Target = Owner,
-					Action = 'Transfer-Success',
-					Tags = {
-						Status = 'Success',
-						Message = 'Balance transferred'
-					}
-				})
-			end
-		else
+		if not msg.Tags.Sender or not msg.Tags.Quantity then
 			ao.send({
 				Target = msg.From,
 				Action = 'Input-Error',
 				Tags = {
 					Status = 'Error',
-					Message = string.format(
-						'Failed to parse data, received: %s. %s.', msg.Data,
-						'Data must be an object - { Sender, Quantity }')
+					Message =
+					'Invalid arguments, required { Sender, Quantity }'
+				}
+			})
+			return
+		end
+
+		if not check_valid_address(msg.Tags.Sender) then
+			ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Sender must be a valid address' } })
+			return
+		end
+
+		local asset_index = -1
+		for i, asset in ipairs(Assets) do
+			if asset.Id == msg.From then
+				asset_index = i
+				break
+			end
+		end
+
+		if asset_index > -1 then
+			local updated_quantity = tonumber(Assets[asset_index].Quantity) + tonumber(msg.Tags.Quantity)
+
+			Assets[asset_index].Quantity = tostring(updated_quantity)
+		else
+			table.insert(Assets, { Id = msg.From, Quantity = msg.Tags.Quantity })
+
+			ao.send({
+				Target = Owner,
+				Action = 'Transfer-Success',
+				Tags = {
+					Status = 'Success',
+					Message = 'Balance transferred'
 				}
 			})
 		end
@@ -369,17 +313,11 @@ Handlers.add('Credit-Notice', Handlers.utils.hasMatchingTag('Action', 'Credit-No
 -- Data - { Id, Quantity }
 Handlers.add('Add-Uploaded-Asset', Handlers.utils.hasMatchingTag('Action', 'Add-Uploaded-Asset'),
 	function(msg)
-		if msg.From ~= Owner and msg.From ~= ao.id then
-			ao.send({
-				Target = msg.From,
-				Action = 'Authorization-Error',
-				Tags = {
-					Status = 'Error',
-					Message = 'Unauthorized to access this handler'
-				}
-			})
-			return
-		end
+	    local authorizeResult, message = authorizeRoles(msg)
+	    if not authorizeResult then
+            ao.send(message)
+            return
+        end
 
 		local decode_check, data = decode_message_data(msg.Data)
 
@@ -411,7 +349,7 @@ Handlers.add('Add-Uploaded-Asset', Handlers.utils.hasMatchingTag('Action', 'Add-
 			end
 
 			if not exists then
-				table.insert(Assets, { Id = data.Id, Quantity = data.Quantity })
+				table.insert(Assets, { Id = data.Id, Type = 'Upload', Quantity = data.Quantity })
 				ao.send({
 					Target = msg.From,
 					Action = 'Add-Uploaded-Asset-Success',
@@ -445,3 +383,68 @@ Handlers.add('Add-Uploaded-Asset', Handlers.utils.hasMatchingTag('Action', 'Add-
 		end
 	end)
 
+Handlers.add('Action-Response', Handlers.utils.hasMatchingTag('Action', 'Action-Response'),
+	function(msg)
+		if msg.Tags['Status'] and msg.Tags['Message'] then
+			local response_tags = {
+				Status = msg.Tags['Status'],
+				Message = msg.Tags['Message']
+			}
+
+			if msg.Tags['Handler'] then response_tags.Handler = msg.Tags['Handler'] end
+
+			ao.send({
+				Target = Owner,
+				Action = 'Action-Response',
+				Tags = response_tags
+			})
+		end
+	end)
+
+Handlers.add('Run-Action', Handlers.utils.hasMatchingTag('Action', 'Run-Action'),
+	function(msg)
+	    local authorizeResult, message = authorizeRoles(msg)
+	    if not authorizeResult then
+            ao.send(message)
+            return
+        end
+
+		local decode_check, data = decode_message_data(msg.Data)
+
+		if decode_check and data then
+			if not data.Target or not data.Action or not data.Input then
+				ao.send({
+					Target = msg.From,
+					Action = 'Input-Error',
+					Tags = {
+						Status = 'Error',
+						Message =
+						'Invalid arguments, required { Target, Action, Input }'
+					}
+				})
+				return
+			end
+
+			if not check_valid_address(data.Target) then
+				ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Target must be a valid address' } })
+				return
+			end
+
+			ao.send({
+				Target = data.Target,
+				Action = data.Action,
+				Data = data.Input
+			})
+		else
+			ao.send({
+				Target = msg.From,
+				Action = 'Input-Error',
+				Tags = {
+					Status = 'Error',
+					Message = string.format(
+						'Failed to parse data, received: %s. %s.', msg.Data,
+						'Data must be an object - { Target, Action, Input }')
+				}
+			})
+		end
+	end)
