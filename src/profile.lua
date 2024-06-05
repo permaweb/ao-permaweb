@@ -25,7 +25,7 @@ if not Collections then Collections = {} end
 
 if not Roles then Roles = {} end
 
-REGISTRY = 'kFYMezhjcPCZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI'
+REGISTRY = 'tURWyfiTCESFL7avuJsH-_Yoc1q9xlakoKV6DLjxkIw'
 
 local function check_valid_address(address)
 	if not address or type(address) ~= 'string' then
@@ -164,7 +164,7 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 			Profile.DateUpdated = msg.Timestamp
 
 			if not FirstRun then
-    	        ao.assign({Processes = { REGISTRY }, Message = msg.id})
+    	        ao.assign({Processes = { REGISTRY }, Message = msg.Id})
             else
 				ao.send({
 					Target = REGISTRY,
@@ -331,11 +331,11 @@ Handlers.add('Credit-Notice', Handlers.utils.hasMatchingTag('Action', 'Credit-No
 -- Data - { Id, Quantity }
 Handlers.add('Add-Uploaded-Asset', Handlers.utils.hasMatchingTag('Action', 'Add-Uploaded-Asset'),
 	function(msg)
-	    local authorizeResult, message = authorizeRoles(msg)
-	    if not authorizeResult then
-            ao.send(message)
-            return
-        end
+	    -- local authorizeResult, message = authorizeRoles(msg)
+	    -- if not authorizeResult then
+        --     ao.send(message)
+        --     return
+        -- end
 
 		local decode_check, data = decode_message_data(msg.Data)
 
@@ -404,11 +404,11 @@ Handlers.add('Add-Uploaded-Asset', Handlers.utils.hasMatchingTag('Action', 'Add-
 -- Data - { Id, Name, Items }
 Handlers.add('Add-Collection', Handlers.utils.hasMatchingTag('Action', 'Add-Collection'),
 	function(msg)
-	    local authorizeResult, message = authorizeRoles(msg)
-	    if not authorizeResult then
-            ao.send(message)
-            return
-        end
+	    -- local authorizeResult, message = authorizeRoles(msg)
+	    -- if not authorizeResult then
+        --     ao.send(message)
+        --     return
+        -- end
 
 		local decode_check, data = decode_message_data(msg.Data)
 
