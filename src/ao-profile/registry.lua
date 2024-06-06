@@ -104,7 +104,7 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
         cover_image = tags.CoverImage or data.CoverImage,
         description = tags.Description or data.Description,
         display_name = tags.DisplayName or data.DisplayName,
-        date_updated = tags.DateUpdated or tags.DateCreated or data.DateUpdated or data.DateCreated,
+        date_updated = msg.Timestamp,
         date_created = tags.DateCreated or data.DateCreated or "NULL"
     }
 
