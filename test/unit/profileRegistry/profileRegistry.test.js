@@ -36,7 +36,7 @@ test("should read auth table", async () => {
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
 test("should update partial profile in registry", async () => {
-    const inputData = { DisplayName: "Who", DateCreated: 123456 }
+    const inputData = { DisplayName: "Who" }
     const result = await Send({ Target: PROFILE_A_ID, From: AUTHORIZED_ADDRESS_A, Action: "Update-Profile", Data: JSON.stringify(inputData) })
     logSendResult(result, 'Update-Profile-1');
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
