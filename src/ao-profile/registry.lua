@@ -31,17 +31,17 @@ local function is_authorized(profile_id, address)
 end
 
 local function process_profile_action(msg, profile_id_to_check_for_update)
-    if profile_id_to_check_for_update and not is_authorized(profile_id_to_check_for_update, msg.From) then
-        ao.send({
-            Target = msg.From,
-            Action = 'Authorization-Error',
-            Tags = {
-                Status = 'Error',
-                Message = 'Unauthorized to access this handler'
-            }
-        })
-        return
-    end
+--     if profile_id_to_check_for_update and not is_authorized(profile_id_to_check_for_update, msg.From) then
+--         ao.send({
+--             Target = msg.From,
+--             Action = 'Authorization-Error',
+--             Tags = {
+--                 Status = 'Error',
+--                 Message = 'Unauthorized to access this handler'
+--             }
+--         })
+--         return
+--     end
     local decode_check, data = decode_message_data(msg.Data)
     if not decode_check then
         ao.send({

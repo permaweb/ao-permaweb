@@ -162,9 +162,9 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 			Profile.DateCreated = Profile.DateCreated or msg.Timestamp
 			Profile.DateUpdated = msg.Timestamp
 
-			-- if FirstRunCompleted then
-			--     ao.assign({Processes = { REGISTRY }, Message = msg.Id})
-			-- else
+			if FirstRunCompleted then
+				ao.assign({Processes = { REGISTRY }, Message = msg.Id})
+			else
 			ao.send({
 				Target = REGISTRY,
 				Action = 'Create-Profile',
@@ -181,7 +181,7 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 				Tags = msg.Tags
 			})
 			FirstRunCompleted = true
-			-- end
+			end
 
 			ao.send({
 				Target = msg.From,
