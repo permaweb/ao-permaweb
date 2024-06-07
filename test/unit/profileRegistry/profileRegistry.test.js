@@ -6,14 +6,14 @@ import fs from 'node:fs'
 import {getTag, logSendResult} from "../../../utils/message.js";
 
 const Send = SendFactory();
-const PROFILE_A_ID = 12345;
+const PROFILE_A_ID = "12345";
 const PROFILE_A_USERNAME = "Steve";
-const PROFILE_B_ID = 12346;
+const PROFILE_B_ID = "12346";
 const PROFILE_B_USERNAME = "Bob";
-const AUTHORIZED_ADDRESS_A = 87654;
-const AUTHORIZED_ADDRESS_B = 76543;
+const AUTHORIZED_ADDRESS_A = "87654";
+const AUTHORIZED_ADDRESS_B = "76543";
 test("load profileRegistry source", async () => {
-    const code = fs.readFileSync('./src/registry.lua', 'utf-8')
+    const code = fs.readFileSync('./src/ao-profile/registry.lua', 'utf-8')
     const result = await Send({ Action: "Eval", Data: code })
 })
 
