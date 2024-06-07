@@ -131,7 +131,7 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
             Action = 'DB_STEP_CODE',
             Tags = {
                 Status = 'ERROR',
-                Message = step_status
+                Message = 'sqlite step error'
             },
             Data = { DB_STEP_MSG = step_status }
         })
