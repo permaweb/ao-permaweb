@@ -24,7 +24,7 @@ if not Collections then Collections = {} end
 
 if not Roles then Roles = {} end
 
-REGISTRY = 'SNy4m-DrqxWl01YqGM4sxI8qCni-58re8uuJLvZPypY'
+REGISTRY = 'IFUs6uP4lauJ0Iaoa0Sx7HuNpqFnIM2z2uYLeK1XedQ'
 
 local function check_valid_address(address)
 	if not address or type(address) ~= 'string' then
@@ -34,9 +34,15 @@ local function check_valid_address(address)
 	return string.match(address, "^[%w%-_]+$") ~= nil and #address == 43
 end
 
-local function check_required_data(data, required_fields)
+local function check_required_data(data, tags, required_fields)
+	local localtags = tags or {}
 	for _, field in ipairs(required_fields) do
-		if data[field] ~= nil then
+		if field == "UserName" then
+			if (data ~= nil and data[field] == '') or tags[field] == '' then
+				return false
+			end
+		end
+		if (data ~= nil and data[field] ~= nil) or localtags[field] ~= nil  then
 			return true
 		end
 	end
@@ -154,11 +160,11 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 				return
 			end
 
-			Profile.UserName = msg.Tags.UserName or data.UserName or Profile.UserName or ''
-			Profile.DisplayName = msg.Tags.DisplayName or data.DisplayName or Profile.DisplayName or ''
-			Profile.Description = msg.Tags.Description or data.Description or Profile.Description or ''
-			Profile.CoverImage = msg.Tags.CoverImage or data.CoverImage or Profile.CoverImage or ''
-			Profile.ProfileImage = msg.Tags.ProfileImage or data.ProfileImage or Profile.ProfileImage or ''
+			Profile.UserName = msg.Tags.UserName or data.UserName or Profile.UserName
+			Profile.DisplayName = msg.Tags.DisplayName or data.DisplayName or Profile.DisplayName
+			Profile.Description = msg.Tags.Description or data.Description or Profile.Description
+			Profile.CoverImage = msg.Tags.CoverImage or data.CoverImage or Profile.CoverImage
+			Profile.ProfileImage = msg.Tags.ProfileImage or data.ProfileImage or Profile.ProfileImage
 			Profile.DateCreated = Profile.DateCreated or msg.Timestamp
 			Profile.DateUpdated = msg.Timestamp
 
@@ -170,13 +176,13 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 				Action = 'Create-Profile',
 				Data = json.encode({
 					AuthorizedAddress = msg.From,
-					UserName = Profile.UserName or nil,
-					DisplayName = Profile.DisplayName or nil,
-					Description = Profile.Description or nil,
-					CoverImage = Profile.CoverImage or nil,
-					ProfileImage = Profile.ProfileImage or nil,
-					DateCreated = Profile.DateCreated,
-					DateUpdated = Profile.DateUpdated
+					UserName = Profile.UserName,
+					DisplayName = Profile.DisplayName,
+					Description = Profile.Description,
+					CoverImage = Profile.CoverImage,
+					ProfileImage = Profile.ProfileImage,
+					DateCreated = msg.Timestamp,
+					DateUpdated = msg.Timestamp
 				}),
 				Tags = msg.Tags
 			})

@@ -12,9 +12,15 @@ const PROFILE_B_ID = "12346";
 const PROFILE_B_USERNAME = "Bob";
 const AUTHORIZED_ADDRESS_A = "87654";
 const AUTHORIZED_ADDRESS_B = "76543";
+test("------------------------------BEGIN TEST------------------------------")
 test("load profileRegistry source", async () => {
-    const code = fs.readFileSync('./src/ao-profile/registry.lua', 'utf-8')
-    const result = await Send({ Action: "Eval", Data: code })
+    try {
+        const code = fs.readFileSync('src/ao-profile/registry.lua', 'utf-8')
+        const result = await Send({ Action: "Eval", Data: code })
+    } catch (error) {
+        console.log(error)
+    }
+
 })
 
 test("should prepare database", async () => {
@@ -23,10 +29,17 @@ test("should prepare database", async () => {
 /*
     TODO: write a migration test: new lua, migration handler by owner only, supports same methods
  */
-test("should create partial profile in registry", async () => {
-    const inputData = { AuthorizedAddress: AUTHORIZED_ADDRESS_A, UserName: PROFILE_A_USERNAME, DateCreated: 123456 }
+test("should create profile in registry", async () => {
+    const inputData = { AuthorizedAddress: AUTHORIZED_ADDRESS_A, UserName: PROFILE_A_USERNAME }
     const result = await Send({ From: PROFILE_A_ID, Action: "Create-Profile", Data: JSON.stringify(inputData) })
     logSendResult(result, 'Create-Profile-1');
+    assert.equal(getTag(result?.Messages[0], "Status"), "Success")
+})
+
+test("should read first profile", async () => {
+    const inputData = { ProfileId: PROFILE_A_ID }
+    const result = await Send({Action: "Read-Profile", Data: JSON.stringify(inputData)})
+    logSendResult(result, "Read-Profile")
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
 

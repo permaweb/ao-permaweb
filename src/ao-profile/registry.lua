@@ -46,7 +46,7 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
     if not decode_check then
         ao.send({
             Target = msg.From,
-            Action = 'DB_CODE',
+            Action = 'ERROR',
             Tags = {
                 Status = 'DECODE_FAILED',
                 Message = "Failed to decode data"
@@ -58,59 +58,79 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
 
     local tags = msg.Tags or {}
 
-    --local insert_languages = [[ INSERT INTO ]]
-    local upsert_metadata_stmt = [[
-        INSERT INTO ao_profile_metadata (id, username, profile_image, cover_image, description, display_name, date_updated, date_created)
-            VALUES (:id, :username, :profile_image, :cover_image, :description, :display_name, :date_updated, :date_created)
-            ON CONFLICT(id) DO UPDATE SET
-                username = COALESCE(excluded.username, ao_profile_metadata.username),
-                profile_image = CASE
-                    WHEN excluded.profile_image IS NULL THEN NULL
-                    WHEN excluded.profile_image = 'NULL' THEN NULL
-                    ELSE COALESCE(excluded.profile_image, ao_profile_metadata.profile_image, NULL)
-                END,
-                cover_image = CASE
-                    WHEN excluded.cover_image IS NULL THEN NULL
-                    WHEN excluded.cover_image = 'NULL' THEN NULL
-                    ELSE COALESCE(excluded.cover_image, ao_profile_metadata.cover_image, NULL)
-                END,
-                description = CASE
-                    WHEN excluded.description IS NULL THEN NULL
-                    WHEN excluded.description = 'NULL' THEN NULL
-                    ELSE COALESCE(excluded.description, ao_profile_metadata.description, NULL)
-                END,
-                display_name = CASE
-                    WHEN excluded.display_name IS NULL THEN NULL
-                    WHEN excluded.display_name = 'NULL' THEN NULL
-                    ELSE COALESCE(excluded.display_name, ao_profile_metadata.display_name, NULL)
-                END,
-                date_updated = CASE
-                    WHEN excluded.date_updated IS NULL THEN excluded.date_created
-                    WHEN excluded.date_updated = "NULL" THEN excluded.date_created
-                    ELSE excluded.date_updated
-                END,
-                date_created = CASE
-                    WHEN excluded.date_created IS NULL THEN ao_profile_metadata.date_created
-                    WHEN excluded.date_created = "NULL" THEN ao_profile_metadata.date_created
-                    ELSE excluded.date_created
-                END
-    ]]
-    local upsert_meta = Db:prepare(upsert_metadata_stmt)
-
-    local names_bound = {
+    local queryValues = {
         id = profile_id_to_check_for_update or msg.From,
-        username = tags.UserName or data.UserName,
-        profile_image = tags.ProfileImage or data.ProfileImage,
-        cover_image = tags.CoverImage or data.CoverImage,
-        description = tags.Description or data.Description,
-        display_name = tags.DisplayName or data.DisplayName,
+        username = tags.UserName or data.UserName or nil,
+        profile_image = tags.ProfileImage or data.ProfileImage or nil,
+        cover_image = tags.CoverImage or data.CoverImage or nil,
+        description = tags.Description or data.Description or nil,
+        display_name = tags.DisplayName or data.DisplayName or nil,
         date_updated = msg.Timestamp,
-        date_created = tags.DateCreated or data.DateCreated or "NULL"
+        date_created = not profile_id_to_check_for_update and msg.Timestamp or nil
     }
 
-    if upsert_meta then
-        upsert_meta:bind_names(names_bound)
-    else
+
+    local columns = {}
+    local placeholders = {}
+    local params = {}
+
+    local function generateInsertQuery()
+        for key, val in pairs(queryValues) do
+            if val ~= nil then -- Include the field if provided
+                table.insert(columns, key)
+                if val == "" then
+                    -- If the field is an empty string, insert NULL
+                    table.insert(placeholders, "NULL")
+                else
+                    -- Otherwise, prepare to bind the actual value
+                    table.insert(placeholders, "?")
+                    table.insert(params, val)
+                end
+            else
+                -- If field is nil and not mandatory, insert NULL
+                if key ~= "id" then
+                    table.insert(columns, key)
+                    table.insert(placeholders, "NULL")
+                end
+            end
+        end
+
+        local sql = "INSERT INTO ao_profile_metadata (" .. table.concat(columns, ", ") .. ")"
+        sql = sql .. " VALUES (" .. table.concat(placeholders, ", ") .. ")"
+
+        return sql
+    end
+
+    local function generateUpdateQuery()
+        -- first create setclauses for everything but id
+        for key, val in pairs(queryValues) do
+            if val ~= nil and val ~= 'id' then -- Include the field if provided
+                table.insert(columns, key)
+                if val == "" then
+                    -- If the field is an empty string, insert NULL
+                    table.insert(placeholders, "NULL")
+                else
+                    -- Otherwise, prepare to bind the actual value
+                    table.insert(placeholders, "?")
+                    table.insert(params, val)
+                end
+            end
+        end
+        -- now build querystring
+        local sql = "UPDATE ao_profile_metadata SET "
+        for i,v in ipairs(columns) do
+            sql = sql .. columns[i] .. " = " .. placeholders[i]
+            if i ~= #columns then
+                sql = sql .. ","
+            end
+        end
+        sql = sql .. " WHERE id = ?"
+        return sql
+    end
+
+    local stmt = profile_id_to_check_for_update and Db:prepare(generateUpdateQuery()) or Db:prepare(generateInsertQuery())
+
+    if not stmt then
         ao.send({
             Target = msg.From,
             Action = 'DB_CODE',
@@ -124,8 +144,18 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
         return json.encode({ Code = 'DB_PREPARE_FAILED' })
     end
 
-    local step_status = upsert_meta:step()
+    if profile_id_to_check_for_update then
+        -- bind values for UPDATE statement (id is last)
+        table.insert(params, profile_id_to_check_for_update)
+        stmt:bind_values(table.unpack(params))
+    else
+        -- bind values for INSERT statement
+        stmt:bind_values(table.unpack(params))
+    end
+
+    local step_status = stmt:step()
     if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
+        print("Error: " .. Db:errmsg())
         ao.send({
             Target = msg.From,
             Action = 'DB_STEP_CODE',
@@ -145,10 +175,10 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
             Status = 'Success',
             Message = 'Record Inserted'
         },
-        Data = json.encode(names_bound)
+        Data = json.encode(queryValues)
     })
 
-    upsert_meta:finalize()
+    stmt:finalize()
     if (not profile_id_to_check_for_update) then
         local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? LIMIT 1')
         check:bind_values(msg.From)
@@ -512,6 +542,7 @@ Handlers.add('Read-Profile', Handlers.utils.hasMatchingTag('Action', 'Read-Profi
 
             row = select_stmt:get_named_values()
             local metadata = {
+                ProfileId = row.id,
                 Username = row.username,
                 ProfileImage = row.profile_image,
                 CoverImage = row.cover_image,
