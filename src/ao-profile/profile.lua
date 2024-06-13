@@ -38,7 +38,7 @@ local function check_required_data(data, tags, required_fields)
 	local localtags = tags or {}
 	for _, field in ipairs(required_fields) do
 		if field == "UserName" then
-			if (data ~= nil and data[field] == '') or tags[field] == '' then
+			if (data ~= nil and data[field] == '') or localtags[field] == '' then
 				return false
 			end
 		end
@@ -61,7 +61,7 @@ end
 
 local function authorizeRoles(msg)
 	-- If Roles is blank, the initial call should be from the owner
-	if msg.From ~= Owner and msg.From ~= ao.id and #Roles == 0 then
+	if msg.From ~= msg.Owner and msg.From ~= ao.id and #Roles == 0 then
 		return false, {
 			Target = msg.From,
 			Action = 'Authorization-Error',
@@ -145,9 +145,11 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 		end
 
 		local decode_check, data = decode_message_data(msg.Data)
+		create_required_data = { "UserName" }
+		update_required_data = { "UserName", "DisplayName", "Description", "CoverImage", "ProfileImage" }
 
 		if decode_check and data then
-			if not check_required_data(data, { "UserName", "DisplayName", "Description", "CoverImage", "ProfileImage" }) then
+			if not check_required_data(data, msg.tags, FirstRunCompleted and update_required_data or create_required_data) then
 				ao.send({
 					Target = msg.From,
 					Action = 'Input-Error',
@@ -160,33 +162,43 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 				return
 			end
 
-			Profile.UserName = msg.Tags.UserName or data.UserName or Profile.UserName
-			Profile.DisplayName = msg.Tags.DisplayName or data.DisplayName or Profile.DisplayName
-			Profile.Description = msg.Tags.Description or data.Description or Profile.Description
-			Profile.CoverImage = msg.Tags.CoverImage or data.CoverImage or Profile.CoverImage
-			Profile.ProfileImage = msg.Tags.ProfileImage or data.ProfileImage or Profile.ProfileImage
+			local function getUpdatedProfileField(tagField, dataField, profileField)
+				if tagField == "" then
+					return nil
+				end
+				if dataField == "" then
+					return nil
+				end
+				return tagField or dataField or profileField
+			end
+
+			Profile.UserName = getUpdatedProfileField(msg.Tags.UserName, data.UserName, Profile.UserName)
+			Profile.DisplayName = getUpdatedProfileField(msg.Tags.DisplayName, data.DisplayName, Profile.DisplayName)
+			Profile.Description = getUpdatedProfileField(msg.Tags.Description, data.Description, Profile.Description)
+			Profile.CoverImage = getUpdatedProfileField(msg.Tags.CoverImage, data.CoverImage, Profile.CoverImage)
+			Profile.ProfileImage = getUpdatedProfileField(msg.Tags.ProfileImage, data.ProfileImage, Profile.ProfileImage)
 			Profile.DateCreated = Profile.DateCreated or msg.Timestamp
 			Profile.DateUpdated = msg.Timestamp
 
 			if FirstRunCompleted then
 				ao.assign({Processes = { REGISTRY }, Message = msg.Id})
 			else
-			ao.send({
-				Target = REGISTRY,
-				Action = 'Create-Profile',
-				Data = json.encode({
-					AuthorizedAddress = msg.From,
-					UserName = Profile.UserName,
-					DisplayName = Profile.DisplayName,
-					Description = Profile.Description,
-					CoverImage = Profile.CoverImage,
-					ProfileImage = Profile.ProfileImage,
-					DateCreated = msg.Timestamp,
-					DateUpdated = msg.Timestamp
-				}),
-				Tags = msg.Tags
-			})
-			FirstRunCompleted = true
+				ao.send({
+					Target = REGISTRY,
+					Action = 'Create-Profile',
+					Data = json.encode({
+						AuthorizedAddress = msg.From,
+						UserName = Profile.UserName,
+						DisplayName = Profile.DisplayName,
+						Description = Profile.Description,
+						CoverImage = Profile.CoverImage,
+						ProfileImage = Profile.ProfileImage,
+						DateCreated = msg.Timestamp,
+						DateUpdated = msg.Timestamp
+					}),
+					Tags = msg.Tags
+				})
+				FirstRunCompleted = true
 			end
 
 			ao.send({

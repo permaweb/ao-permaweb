@@ -13,12 +13,12 @@ function getTag(msg, tagName) {
 }
 
 test('load source profile', async () => {
-    const code = fs.readFileSync('./src/profile.lua', 'utf-8')
+    const code = fs.readFileSync('./src/ao-profile/profile.lua', 'utf-8')
     const result = await Send({ Action: "Eval", Data: code })
 })
 
 test('should update', async () => {
-    const updatedUserName = await Send({ Owner: AUTHORIZED_ADDRESS_A, From: AUTHORIZED_ADDRESS_A, Action: "Update-Profile", Data: JSON.stringify({ UserName: "Steve" }) })
+    const updatedUserName = await Send({ Owner: AUTHORIZED_ADDRESS_A, From: AUTHORIZED_ADDRESS_A, Action: "Update-Profile", Data: JSON.stringify({ UserName: "Steve", DisplayName: "Steverino" }) })
     logSendResult(updatedUserName, "Update-Profile")
     const registryMessages = findMessageByTarget(updatedUserName.Messages, REGISTRY)
     assert.equal(getTag(updatedUserName?.Messages[0], "Status"), "Success")
