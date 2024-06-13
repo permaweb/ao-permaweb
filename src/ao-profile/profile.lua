@@ -57,7 +57,7 @@ local function authorizeRoles(msg)
 	-- If Roles is blank, the initial call should be from the owner
 	if msg.From ~= Owner and msg.From ~= ao.id and #Roles == 0 then
 		return false, {
-			Target = msg.From,
+			Target = msg.Target or msg.From,
 			Action = 'Authorization-Error',
 			Tags = {
 				Status = 'Error',
@@ -82,7 +82,7 @@ local function authorizeRoles(msg)
 
 	if not existingRole then
 		return false, {
-			Target = msg.From,
+			Target = msg.Target or msg.From,
 			Action = 'Authorization-Error',
 			Tags = {
 				Status = 'Error',
@@ -330,45 +330,41 @@ Handlers.add('Credit-Notice', Handlers.utils.hasMatchingTag('Action', 'Credit-No
 -- Data - { Id, Quantity }
 Handlers.add('Add-Uploaded-Asset', Handlers.utils.hasMatchingTag('Action', 'Add-Uploaded-Asset'),
 	function(msg)
-		-- local authorizeResult, message = authorizeRoles(msg)
-		-- if not authorizeResult then
-		--     ao.send(message)
-		--     return
-		-- end
-
-		local decode_check, data = decode_message_data(msg.Data)
-
-		if decode_check and data then
-			if not data.Id or not data.Quantity then
+		local authorizeResult, message = authorizeRoles(msg)
+		  if not authorizeResult then
+		     ao.send(message)
+		     return
+		end
+		-- Probably want to validate that it's an atomic asset being sent at some point - module later?
+			if not msg.Tags.Quantity then
 				ao.send({
-					Target = msg.From,
+					Target = msg.Target,
 					Action = 'Input-Error',
 					Tags = {
 						Status = 'Error',
 						Message =
-						'Invalid arguments, required { Id, Quantity }'
+						'Invalid arguments, required Quantity tag on Atomic Asset Spawn }'
 					}
 				})
 				return
 			end
 
-			if not check_valid_address(data.Id) then
-				ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Asset Id must be a valid address' } })
+			if not check_valid_address(msg.Id) then
+				ao.send({ Target = msg.Target, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Asset Id must be a valid address' } })
 				return
 			end
 
 			local exists = false
 			for _, asset in ipairs(Assets) do
-				if asset.Id == data.Id then
+				if asset.Id == msg.Id then
 					exists = true
 					break
 				end
 			end
-
 			if not exists then
-				table.insert(Assets, { Id = data.Id, Type = 'Upload', Quantity = data.Quantity })
+				table.insert(Assets, { Id = msg.Id, Type = 'Upload', Quantity = msg.Tags.Quantity })
 				ao.send({
-					Target = msg.From,
+					Target = msg.Target,
 					Action = 'Add-Uploaded-Asset-Success',
 					Tags = {
 						Status = 'Success',
@@ -377,27 +373,15 @@ Handlers.add('Add-Uploaded-Asset', Handlers.utils.hasMatchingTag('Action', 'Add-
 				})
 			else
 				ao.send({
-					Target = msg.From,
+					Target = msg.Target,
 					Action = 'Validation-Error',
 					Tags = {
 						Status = 'Error',
 						Message = string.format(
-							'Asset with Id %s already exists', data.Id)
+							'Asset with Id %s already exists', msg.Id)
 					}
 				})
 			end
-		else
-			ao.send({
-				Target = msg.From,
-				Action = 'Input-Error',
-				Tags = {
-					Status = 'Error',
-					Message = string.format(
-						'Failed to parse data, received: %s. %s.', msg.Data,
-						'Data must be an object - { Id, Quantity }')
-				}
-			})
-		end
 	end)
 
 -- Data - { Id, Name, Items }
