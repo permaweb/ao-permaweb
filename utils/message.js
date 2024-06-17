@@ -62,6 +62,8 @@ export function logSendResult(sendResult, label) {
                 })
                 console.log(`----DATA:`)
                 console.log(m.Data)
+                console.log(`----TARGET:`)
+                console.log(m.Target)
             })
         }
     }

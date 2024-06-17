@@ -24,19 +24,24 @@ if not Collections then Collections = {} end
 
 if not Roles then Roles = {} end
 
-REGISTRY = 'SNy4m-DrqxWl01YqGM4sxI8qCni-58re8uuJLvZPypY'
+REGISTRY = 'CiiLFogLm3OEwimYxdz_vLkzLqDzhb8eUzM_SQvzsUs'
 
 local function check_valid_address(address)
 	if not address or type(address) ~= 'string' then
 		return false
 	end
-
 	return string.match(address, "^[%w%-_]+$") ~= nil and #address == 43
 end
 
-local function check_required_data(data, required_fields)
+local function check_required_data(data, tags, required_fields)
+	local localtags = tags or {}
 	for _, field in ipairs(required_fields) do
-		if data[field] ~= nil then
+		if field == "UserName" then
+			if (data ~= nil and data[field] == '') or localtags[field] == '' then
+				return false
+			end
+		end
+		if (data ~= nil and data[field] ~= nil) or localtags[field] ~= nil  then
 			return true
 		end
 	end
@@ -139,9 +144,11 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 		end
 
 		local decode_check, data = decode_message_data(msg.Data)
+		create_required_data = { "UserName" }
+		update_required_data = { "UserName", "DisplayName", "Description", "CoverImage", "ProfileImage" }
 
 		if decode_check and data then
-			if not check_required_data(data, { "UserName", "DisplayName", "Description", "CoverImage", "ProfileImage" }) then
+			if not check_required_data(data, msg.Tags, FirstRunCompleted and update_required_data or create_required_data) then
 				ao.send({
 					Target = msg.From,
 					Action = 'Input-Error',
@@ -154,33 +161,42 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 				return
 			end
 
-			Profile.UserName = msg.Tags.UserName or data.UserName or Profile.UserName or ''
-			Profile.DisplayName = msg.Tags.DisplayName or data.DisplayName or Profile.DisplayName or ''
-			Profile.Description = msg.Tags.Description or data.Description or Profile.Description or ''
-			Profile.CoverImage = msg.Tags.CoverImage or data.CoverImage or Profile.CoverImage or ''
-			Profile.ProfileImage = msg.Tags.ProfileImage or data.ProfileImage or Profile.ProfileImage or ''
+			local function getUpdatedProfileField(tagField, dataField, profileField)
+				if tagField == "" then
+					return nil
+				end
+				if dataField == "" then
+					return nil
+				end
+				return tagField or dataField or profileField
+			end
+
+			Profile.UserName = getUpdatedProfileField(msg.Tags.UserName, data.UserName, Profile.UserName)
+			Profile.DisplayName = getUpdatedProfileField(msg.Tags.DisplayName, data.DisplayName, Profile.DisplayName)
+			Profile.Description = getUpdatedProfileField(msg.Tags.Description, data.Description, Profile.Description)
+			Profile.CoverImage = getUpdatedProfileField(msg.Tags.CoverImage, data.CoverImage, Profile.CoverImage)
+			Profile.ProfileImage = getUpdatedProfileField(msg.Tags.ProfileImage, data.ProfileImage, Profile.ProfileImage)
 			Profile.DateCreated = Profile.DateCreated or msg.Timestamp
 			Profile.DateUpdated = msg.Timestamp
 
 			if FirstRunCompleted then
 				ao.assign({Processes = { REGISTRY }, Message = msg.Id})
 			else
-			ao.send({
-				Target = REGISTRY,
-				Action = 'Create-Profile',
-				Data = json.encode({
-					AuthorizedAddress = msg.From,
-					UserName = Profile.UserName or nil,
-					DisplayName = Profile.DisplayName or nil,
-					Description = Profile.Description or nil,
-					CoverImage = Profile.CoverImage or nil,
-					ProfileImage = Profile.ProfileImage or nil,
-					DateCreated = Profile.DateCreated,
-					DateUpdated = Profile.DateUpdated
-				}),
-				Tags = msg.Tags
-			})
-			FirstRunCompleted = true
+				ao.send({
+					Target = REGISTRY,
+					Action = 'Create-Profile',
+					Data = json.encode({
+						AuthorizedAddress = msg.From,
+						UserName = Profile.UserName,
+						DisplayName = Profile.DisplayName,
+						Description = Profile.Description,
+						CoverImage = Profile.CoverImage,
+						ProfileImage = Profile.ProfileImage,
+						DateCreated = msg.Timestamp,
+						DateUpdated = msg.Timestamp
+					})
+				})
+				FirstRunCompleted = true
 			end
 
 			ao.send({
