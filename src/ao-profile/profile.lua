@@ -654,3 +654,49 @@ Handlers.add('Run-Action', Handlers.utils.hasMatchingTag('Action', 'Run-Action')
 			})
 		end
 	end)
+
+Handlers.add('Proxy-Action', Handlers.utils.hasMatchingTag('Action', 'Proxy-Action'),
+		function(msg)
+			local authorizeResult, message = authorizeRoles(msg)
+			if not authorizeResult then
+				ao.send(message)
+				return
+			end
+
+			if not msg.Tags['Proxy-Target'] or not msg.Tags['Proxy-Action'] then
+				ao.send({
+					Target = msg.From,
+					Action = 'Input-Error',
+					Tags = {
+						Status = 'Error',
+						Message =
+						'Invalid arguments, required { Target, Action, Input }'
+					}
+				})
+				return
+			end
+
+			local newTags = msg.Tags or {}
+			local proxyTarget
+			if not check_valid_address(newTags['Proxy-Target']) then
+				ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Tag Proxy-Target must be a provided and a valid address' } })
+				return
+			end
+
+			if newTags['Action'] and newTags ['Proxy-Action'] then
+				newTags['Action'] = newTags['Proxy-Action']
+			end
+
+			if newTags['Proxy-Target'] then
+				proxyTarget = newTags['Proxy-Target']
+				newTags['Proxy-Target'] = nil
+			end
+
+			ao.send({
+				Target = proxyTarget,
+				Action = newTags.Action,
+				Data = msg.Data,
+				Tags = newTags
+			})
+
+		end)
