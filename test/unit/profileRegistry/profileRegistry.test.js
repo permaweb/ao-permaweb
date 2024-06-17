@@ -3,7 +3,7 @@ import * as assert from 'node:assert'
 import { SendFactory } from '../../../utils/aos.helper.js'
 import { inspect } from 'node:util';
 import fs from 'node:fs'
-import {getTag, logSendResult} from "../../../utils/message.js";
+import {findMessageByTag, getTag, logSendResult} from "../../../utils/message.js";
 
 
 const PROFILE_A_ID = "12345";
@@ -53,7 +53,7 @@ test("should read auth table", async () => {
     logSendResult(result, "Read-Auth")
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
-test("should update partial profile in registry", async () => {
+test("should update profile in registry", async () => {
     const inputData = { DisplayName: "Who" }
     const result = await Send({ Target: PROFILE_A_ID, From: AUTHORIZED_ADDRESS_A, Action: "Update-Profile", Data: JSON.stringify(inputData) })
     logSendResult(result, 'Update-Profile-1');
@@ -64,6 +64,16 @@ test("should read all metadata", async () => {
     const result = await Send({Action: "Read-Metadata"})
     logSendResult(result, "Read-Metadata")
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
+})
+
+test('should get metadata for profile ids', async () => {
+    const inputData = { ProfileIds: [PROFILE_A_ID] }
+    const result = await Send({ Action: "Get-Metadata-By-Profile-Ids", Data: JSON.stringify(inputData) }, )
+    logSendResult(result, "Get-Metadata-By-Profile-Ids")
+    const resultMessages = findMessageByTag(result.Messages, "Status");
+    assert.equal(getTag(resultMessages[0], "Status"), "Success")
+    const data = resultMessages[0].Data;
+    assert.equal(data.length > 0, true)
 })
 
 // test("should add delegated addresses to auth table", async () => {

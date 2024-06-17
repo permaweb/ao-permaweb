@@ -38,9 +38,12 @@ test('should update with tags', async () => {
     assert.equal(getTag(statusMessages[0], "Status"), "Success")
 })
 
+
+
 // test('should get info', async () => {
 //     const info = await Send({ Action: "Info" })
 //     assert.equal(getProfileField(info.Messages[0], "Description"), "Terrible");
 //     logMessage('info created timestamp', getProfileField(info.Messages[0], "DateCreated"))
 //     logMessage('info updated timestamp', getProfileField(info.Messages[0], "DateUpdated"))
+
 // })
