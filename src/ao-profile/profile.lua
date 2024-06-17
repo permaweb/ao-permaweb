@@ -24,13 +24,12 @@ if not Collections then Collections = {} end
 
 if not Roles then Roles = {} end
 
-REGISTRY = 'IFUs6uP4lauJ0Iaoa0Sx7HuNpqFnIM2z2uYLeK1XedQ'
+REGISTRY = 'CiiLFogLm3OEwimYxdz_vLkzLqDzhb8eUzM_SQvzsUs'
 
 local function check_valid_address(address)
 	if not address or type(address) ~= 'string' then
 		return false
 	end
-
 	return string.match(address, "^[%w%-_]+$") ~= nil and #address == 43
 end
 
@@ -61,7 +60,7 @@ end
 
 local function authorizeRoles(msg)
 	-- If Roles is blank, the initial call should be from the owner
-	if msg.From ~= msg.Owner and msg.From ~= ao.id and #Roles == 0 then
+	if msg.From ~= Owner and msg.From ~= ao.id and #Roles == 0 then
 		return false, {
 			Target = msg.From,
 			Action = 'Authorization-Error',
@@ -149,7 +148,7 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 		update_required_data = { "UserName", "DisplayName", "Description", "CoverImage", "ProfileImage" }
 
 		if decode_check and data then
-			if not check_required_data(data, msg.tags, FirstRunCompleted and update_required_data or create_required_data) then
+			if not check_required_data(data, msg.Tags, FirstRunCompleted and update_required_data or create_required_data) then
 				ao.send({
 					Target = msg.From,
 					Action = 'Input-Error',
@@ -195,8 +194,7 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 						ProfileImage = Profile.ProfileImage,
 						DateCreated = msg.Timestamp,
 						DateUpdated = msg.Timestamp
-					}),
-					Tags = msg.Tags
+					})
 				})
 				FirstRunCompleted = true
 			end

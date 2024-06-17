@@ -4,10 +4,10 @@ import fs from 'fs'
 const wasmModuleFile = process.env.WASM || './AOS.wasm';
 const wasmFormat = process.env.FORMAT || 'wasm32-unknown-emscripten'
 
-export function SendFactory(format = wasmFormat, wasmFile = wasmModuleFile) {
+export function SendFactory(format = wasmFormat, wasmFile = wasmModuleFile, ) {
     const aos = fs.readFileSync(wasmFile)
     let memory = null
-    return async function Send(DataItem) {
+    const Send = async function Send(DataItem) {
         const msg = Object.keys(DataItem).reduce(function (di, k) {
         if (di[k]) {
             di[k] = DataItem[k]
@@ -28,6 +28,7 @@ export function SendFactory(format = wasmFormat, wasmFile = wasmModuleFile) {
 
         return { Messages: result.Messages, Spawns: result.Spawns, Output: result.Output, Assignments: result.Assignments }
     }
+    return { Send }
 }
 
 // timestamp hack because Date.now() was not updating
@@ -40,9 +41,9 @@ function createMsg() {
   return {
     Id: '1234',
     Target: 'AOS',
-    Owner: 'OWNER',
-    From: 'OWNER',
-    Data: '1984',
+    Owner: 'MSGOWNER',
+    From: 'MSGFROM',
+    Data: `{ "testdata": true }`,
     Tags: [],
     'Block-Height': '1',
     Timestamp: getTimestamp(),

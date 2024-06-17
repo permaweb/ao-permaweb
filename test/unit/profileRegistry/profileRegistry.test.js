@@ -5,13 +5,14 @@ import { inspect } from 'node:util';
 import fs from 'node:fs'
 import {getTag, logSendResult} from "../../../utils/message.js";
 
-const Send = SendFactory();
+
 const PROFILE_A_ID = "12345";
 const PROFILE_A_USERNAME = "Steve";
 const PROFILE_B_ID = "12346";
 const PROFILE_B_USERNAME = "Bob";
-const AUTHORIZED_ADDRESS_A = "87654";
-const AUTHORIZED_ADDRESS_B = "76543";
+const AUTHORIZED_ADDRESS_A = "ADDRESS_A";
+const AUTHORIZED_ADDRESS_B = "ADDRESS_B";
+const {Send} = SendFactory();
 test("------------------------------BEGIN TEST------------------------------")
 test("load profileRegistry source", async () => {
     try {
@@ -20,11 +21,15 @@ test("load profileRegistry source", async () => {
     } catch (error) {
         console.log(error)
     }
-
 })
 
 test("should prepare database", async () => {
     const preparedDb = await Send({Action: "Prepare-Database"})
+})
+test("should read all metadata", async () => {
+    const result = await Send({Action: "Read-Metadata"})
+    logSendResult(result, "Read-Metadata")
+    assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
 /*
     TODO: write a migration test: new lua, migration handler by owner only, supports same methods
