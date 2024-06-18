@@ -130,8 +130,8 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
         sql = sql .. " WHERE id = ?"
         return sql
     end
-
-    local stmt = profile_id_to_check_for_update and Db:prepare(generateUpdateQuery()) or Db:prepare(generateInsertQuery())
+    local sql = profile_id_to_check_for_update and generateUpdateQuery() or generateInsertQuery()
+    local stmt = Db:prepare(sql)
 
     if not stmt then
         ao.send({
@@ -141,7 +141,10 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
                 Status = 'DB_PREPARE_FAILED',
                 Message = "DB PREPARED QUERY FAILED"
             },
-            Data = { Code = "Failed to prepare insert statement" }
+            Data = { Code = "Failed to prepare insert statement",
+                     SQL = sql,
+                     ERROR = Db:errmsg()
+            }
         })
         print("Failed to prepare insert statement")
         return json.encode({ Code = 'DB_PREPARE_FAILED' })

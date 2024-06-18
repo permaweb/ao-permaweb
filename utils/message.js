@@ -14,6 +14,16 @@ export function findMessageByTag(messages, tagName) {
     return [];
 }
 
+export function findMessageByTagValue(messages, tagName, tagValue) {
+    if (messages && messages.length) {
+        return messages.filter(m =>
+            m.Tags && m.Tags.length && m.Tags.some(t => t.name === tagName && t.value === tagValue)
+        )
+    }
+    return [];
+
+}
+
 export function getData(msg){
     return msg.Data;
 }
@@ -72,6 +82,12 @@ export function logSendResult(sendResult, label) {
                 console.log(m.Data)
                 console.log(`----TARGET:`)
                 console.log(m.Target)
+            })
+        }
+        if (sendResult.Assignments && sendResult.Assignments.length > 0) {
+            sendResult.Assignments.forEach((m, index) => {
+                console.log(`---ASSIGNMENT INDEX ${index}`)
+                console.log(`----ASSIGNED:`, m)
             })
         }
     }
