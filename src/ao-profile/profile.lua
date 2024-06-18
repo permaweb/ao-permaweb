@@ -9,11 +9,16 @@ local json = require('json')
 --   ProfileImage
 --   DateCreated
 --   DateUpdated
+--	 Version
 -- }
+if not CurrentProfileVersion then CurrentProfileVersion = 0.1 end
 
 if not Profile then Profile = {} end
 
+if not Profile.Version then Profile.Version = CurrentProfileVersion end
+
 if not FirstRunCompleted then FirstRunCompleted = false end
+
 -- Assets: { Id, Type, Quantity } []
 
 if not Assets then Assets = {} end
@@ -184,6 +189,10 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 			else
 				ao.assign({Processes = { REGISTRY }, Message = ao.id})
 				FirstRunCompleted = true
+			end
+			
+			if Profile.Version ~= CurrentProfileVersion then
+				Profile.Version = CurrentProfileVersion
 			end
 
 			ao.send({
