@@ -1,17 +1,12 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert'
 import { SendFactory } from '../../utils/aos.helper.js'
-import { inspect } from 'node:util';
 import fs from 'node:fs'
 import {findMessageByTag, getTag, logSendResult} from "../../utils/message.js";
 import {findMessageByTagValue} from "../../utils/message.js";
 
 const PROFILE_A_ID = "12345";
-const PROFILE_A_USERNAME = "Steve";
-const PROFILE_B_ID = "12346";
-const PROFILE_B_USERNAME = "Bob";
 const AUTHORIZED_ADDRESS_A = "ADDRESS_A";
-const AUTHORIZED_ADDRESS_B = "ADDRESS_B";
 const ProfileProcess = SendFactory( { processId: PROFILE_A_ID, moduleId: '7777'});
 const SendProfile = ProfileProcess.Send;
 const RegistryProcess = SendFactory({ processId: '6666', moduleId: '5555'});
@@ -43,7 +38,6 @@ test('should insert', async () => {
     assert.equal(getTag(statusMessages[0], "Status"), "Success")
 
     const createMessages = findMessageByTagValue(updateResult.Messages, "Action", "Create-Profile");
-    console.log('data', JSON.parse(createMessages[0].Data))
     const newMessage = { Id: "1114", From:  PROFILE_A_ID, Action: "Create-Profile", Data: JSON.stringify(JSON.parse(createMessages[0].Data)) }
     const registryResult = await SendRegistry(newMessage)
     logSendResult(registryResult, "Update-Profile--Create")
