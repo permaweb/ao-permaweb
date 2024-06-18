@@ -14,6 +14,14 @@ export function findMessageByTag(messages, tagName) {
     return [];
 }
 
+export function getData(msg){
+    return msg.Data;
+}
+
+export function getDataItem(data, key){
+    return data[key];
+}
+
 /**
  * Filters the provided messages array to return only those messages that have a matching target.
  *
