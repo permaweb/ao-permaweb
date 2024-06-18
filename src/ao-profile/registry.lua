@@ -13,7 +13,7 @@ end
 
 local function is_authorized(profile_id, address)
     if not profile_id then
-        return true
+        return false
     end
     local query = [[
         SELECT role
@@ -32,43 +32,34 @@ local function is_authorized(profile_id, address)
     return authorized
 end
 
-local function process_profile_action(msg, profile_id_to_check_for_update)
-    if profile_id_to_check_for_update and not is_authorized(profile_id_to_check_for_update, msg.From) then
-        ao.send({
-            Target = msg.From,
-            Action = 'Authorization-Error',
-            Tags = {
-                Status = 'Error',
-                Message = 'Unauthorized to access this handler'
-            }
-        })
-        return
-    end
+local function process_profile_action(msg, create_profile)
+    local reply_to = msg.Tags.ProfileProcess or msg.Target
+    -- currently using a tag for profileprocess because the target of the original message is not available.
+    local profile_id = create_profile and msg.Id or msg.Tags.ProfileProcess
+    if not create_profile and not is_authorized(profile_id, msg.From) then
+         ao.send({
+             Target = reply_to,
+             Action = 'Authorization-Error',
+             Tags = {
+                 Status = 'Error',
+                 Message = 'Unauthorized to access this handler'
+             }
+         })
+         return
+     end
     local decode_check, data = decode_message_data(msg.Data)
-    if not decode_check then
-        ao.send({
-            Target = msg.From,
-            Action = 'ERROR',
-            Tags = {
-                Status = 'DECODE_FAILED',
-                Message = "Failed to decode data"
-            },
-            Data = { Code = "DECODE_FAILED" }
-        })
-        return
-    end
 
     local tags = msg.Tags or {}
 
     local queryValues = {
-        id = profile_id_to_check_for_update or msg.From,
-        username = tags.UserName or data.UserName or nil,
-        profile_image = tags.ProfileImage or data.ProfileImage or nil,
-        cover_image = tags.CoverImage or data.CoverImage or nil,
-        description = tags.Description or data.Description or nil,
-        display_name = tags.DisplayName or data.DisplayName or nil,
+        id = profile_id,
+        username = tags.UserName or decode_check and data.UserName or nil,
+        profile_image = tags.ProfileImage or decode_check and data.ProfileImage or nil,
+        cover_image = tags.CoverImage or decode_check and data.CoverImage or nil,
+        description = tags.Description or decode_check and data.Description or nil,
+        display_name = tags.DisplayName or decode_check and data.DisplayName or nil,
         date_updated = msg.Timestamp,
-        date_created = not profile_id_to_check_for_update and msg.Timestamp or nil
+        date_created = create_profile and msg.Timestamp or nil
     }
 
     local columns = {}
@@ -130,12 +121,12 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
         sql = sql .. " WHERE id = ?"
         return sql
     end
-    local sql = profile_id_to_check_for_update and generateUpdateQuery() or generateInsertQuery()
+    local sql = create_profile and generateInsertQuery() or generateUpdateQuery()
     local stmt = Db:prepare(sql)
 
     if not stmt then
         ao.send({
-            Target = msg.From,
+            Target = reply_to,
             Action = 'DB_CODE',
             Tags = {
                 Status = 'DB_PREPARE_FAILED',
@@ -150,12 +141,12 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
         return json.encode({ Code = 'DB_PREPARE_FAILED' })
     end
 
-    if profile_id_to_check_for_update then
-        -- bind values for UPDATE statement (id is last)
-        table.insert(params, profile_id_to_check_for_update)
+    if create_profile then
+        -- bind values for INSERT statement
         stmt:bind_values(table.unpack(params))
     else
-        -- bind values for INSERT statement
+        -- bind values for UPDATE statement (id is last)
+        table.insert(params, profile_id)
         stmt:bind_values(table.unpack(params))
     end
 
@@ -163,7 +154,7 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
     if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
         print("Error: " .. Db:errmsg())
         ao.send({
-            Target = msg.From,
+            Target = reply_to,
             Action = 'DB_STEP_CODE',
             Tags = {
                 Status = 'ERROR',
@@ -175,7 +166,7 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
     end
 
     ao.send({
-        Target = msg.From,
+        Target = reply_to,
         Action = 'Success',
         Tags = {
             Status = 'Success',
@@ -185,13 +176,13 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
     })
 
     stmt:finalize()
-    if (not profile_id_to_check_for_update) then
+    if (create_profile) then
         local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? LIMIT 1')
         check:bind_values(msg.From)
         if check:step() ~= sqlite3.ROW then
             local insert_auth = Db:prepare(
                     'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
-            insert_auth:bind_values(msg.From, data.AuthorizedAddress, 'Admin')
+            insert_auth:bind_values(msg.Id, msg.From, 'Owner')
             insert_auth:step()
         end
     end
@@ -426,17 +417,17 @@ Handlers.add('Get-Profiles-By-Delegate', Handlers.utils.hasMatchingTag('Action',
             end
         end)
 
--- Create-Profile Handler
+-- Create-Profile Handler (Original spawned profile message)
 Handlers.add('Create-Profile', Handlers.utils.hasMatchingTag('Action', 'Create-Profile'),
         function(msg)
-            process_profile_action(msg, nil)
+            process_profile_action(msg, true)
         end)
 
 -- Update-Profile Handler
 Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-Profile'),
-        function(msg)
-            process_profile_action(msg, msg.Target)
-        end)
+    function(msg)
+        process_profile_action(msg, false)
+    end)
 
 Handlers.add('Count-Profiles', Handlers.utils.hasMatchingTag('Action', 'Count-Profiles'),
         function(msg)

@@ -18,13 +18,13 @@ if not FirstRunCompleted then FirstRunCompleted = false end
 
 if not Assets then Assets = {} end
 
--- Collections: { Id, Name, Items, SortOrder } []
+-- Collections: { Id, SortOrder } []
 
 if not Collections then Collections = {} end
 
 if not Roles then Roles = {} end
 
-REGISTRY = 'CiiLFogLm3OEwimYxdz_vLkzLqDzhb8eUzM_SQvzsUs'
+REGISTRY = 'SNy4m-DrqxWl01YqGM4sxI8qCni-58re8uuJLvZPypY'
 
 local function check_valid_address(address)
 	if not address or type(address) ~= 'string' then
@@ -62,7 +62,7 @@ local function authorizeRoles(msg)
 	-- If Roles is blank, the initial call should be from the owner
 	if msg.From ~= Owner and msg.From ~= ao.id and #Roles == 0 then
 		return false, {
-			Target = msg.From,
+			Target = msg.Target or msg.From,
 			Action = 'Authorization-Error',
 			Tags = {
 				Status = 'Error',
@@ -79,21 +79,21 @@ local function authorizeRoles(msg)
 		end
 	end
 
-	if not existingRole and msg.From == Owner then
-		-- If Roles table is empty or owner doesn't exist, authorize the owner
-		table.insert(Roles, { Role = 'Owner', AddressOrProfile = msg.From })
-		existingRole = true
-	end
-
 	if not existingRole then
-		return false, {
-			Target = msg.From,
-			Action = 'Authorization-Error',
-			Tags = {
-				Status = 'Error',
-				ErrorMessage = 'Unauthorized to access this handler'
+		if msg.From == Owner then
+			-- If Roles table is empty or owner doesn't exist, authorize the owner
+			table.insert(Roles, {Role = "Owner", AddressOrProfile = msg.From})
+			existingRole = true
+		else
+			return false, {
+				Target = msg.Target or msg.From,
+				Action = 'Authorization-Error',
+				Tags = {
+					Status = 'Error',
+					ErrorMessage = 'Unauthorized to access this handler'
+				}
 			}
-		}
+		end
 	end
 
 	return true
@@ -155,7 +155,7 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 					Tags = {
 						Status = 'Error',
 						EMessage =
-						'Invalid arguments, required at least one of { UserName, DisplayName, Description, CoverImage, ProfileImage }'
+						'Invalid data or Tags, required at least Username for creation, or one of { UserName, DisplayName, Description, CoverImage, ProfileImage } for updates'
 					}
 				})
 				return
@@ -182,20 +182,7 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 			if FirstRunCompleted then
 				ao.assign({Processes = { REGISTRY }, Message = msg.Id})
 			else
-				ao.send({
-					Target = REGISTRY,
-					Action = 'Create-Profile',
-					Data = json.encode({
-						AuthorizedAddress = msg.From,
-						UserName = Profile.UserName,
-						DisplayName = Profile.DisplayName,
-						Description = Profile.Description,
-						CoverImage = Profile.CoverImage,
-						ProfileImage = Profile.ProfileImage,
-						DateCreated = msg.Timestamp,
-						DateUpdated = msg.Timestamp
-					})
-				})
+				ao.assign({Processes = { REGISTRY }, Message = ao.id})
 				FirstRunCompleted = true
 			end
 
@@ -238,7 +225,7 @@ Handlers.add('Transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'),
 		})
 	end)
 
--- Data - { Recipient, Quantity }
+-- Tags - { Recipient, Quantity }
 Handlers.add('Debit-Notice', Handlers.utils.hasMatchingTag('Action', 'Debit-Notice'),
 	function(msg)
 		if not msg.Tags.Recipient or not msg.Tags.Quantity then
@@ -296,7 +283,7 @@ Handlers.add('Debit-Notice', Handlers.utils.hasMatchingTag('Action', 'Debit-Noti
 		end
 	end)
 
--- Data - { Sender, Quantity }
+-- Tags - { Sender, Quantity }
 Handlers.add('Credit-Notice', Handlers.utils.hasMatchingTag('Action', 'Credit-Notice'),
 	function(msg)
 		if not msg.Tags.Sender or not msg.Tags.Quantity then
@@ -343,156 +330,120 @@ Handlers.add('Credit-Notice', Handlers.utils.hasMatchingTag('Action', 'Credit-No
 		end
 	end)
 
--- Data - { Id, Quantity }
+-- Tag - { Quantity = # } - Assignment from Spawn, msg.Id is the asset ID
 Handlers.add('Add-Uploaded-Asset', Handlers.utils.hasMatchingTag('Action', 'Add-Uploaded-Asset'),
 	function(msg)
-		-- local authorizeResult, message = authorizeRoles(msg)
-		-- if not authorizeResult then
-		--     ao.send(message)
-		--     return
-		-- end
+		local reply_to = msg.Target or msg.From
+		local authorizeResult, message = authorizeRoles(msg)
+		-- there's current a bug with sending back a message via assignment to msg.From
+		if not authorizeResult then
+		    ao.send(message)
+	        return
+		end
 
-		local decode_check, data = decode_message_data(msg.Data)
+		local quantity = msg.Tags.Quantity and tonumber(msg.Tags.Quantity)
 
-		if decode_check and data then
-			if not data.Id or not data.Quantity then
-				ao.send({
-					Target = msg.From,
-					Action = 'Input-Error',
-					Tags = {
-						Status = 'Error',
-						Message =
-						'Invalid arguments, required { Id, Quantity }'
-					}
-				})
-				return
-			end
-
-			if not check_valid_address(data.Id) then
-				ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Asset Id must be a valid address' } })
-				return
-			end
-
-			local exists = false
-			for _, asset in ipairs(Assets) do
-				if asset.Id == data.Id then
-					exists = true
-					break
-				end
-			end
-
-			if not exists then
-				table.insert(Assets, { Id = data.Id, Type = 'Upload', Quantity = data.Quantity })
-				ao.send({
-					Target = msg.From,
-					Action = 'Add-Uploaded-Asset-Success',
-					Tags = {
-						Status = 'Success',
-						Message = 'Asset added to profile'
-					}
-				})
-			else
-				ao.send({
-					Target = msg.From,
-					Action = 'Validation-Error',
-					Tags = {
-						Status = 'Error',
-						Message = string.format(
-							'Asset with Id %s already exists', data.Id)
-					}
-				})
-			end
-		else
+		if not quantity then
 			ao.send({
-				Target = msg.From,
+				Target = reply_to,
 				Action = 'Input-Error',
 				Tags = {
 					Status = 'Error',
+					Message =
+					'Invalid argument, required Quantity tag on Atomic Asset Spawn must exist and be a number }'
+				}
+			})
+			return
+		end
+
+
+		if not check_valid_address(msg.Id) then
+			ao.send({ Target = reply_to, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Asset Id must be a valid address' } })
+			return
+		end
+
+		local exists = false
+		for _, asset in ipairs(Assets) do
+			if asset.Id == msg.Id then
+				exists = true
+				break
+			end
+		end
+
+		if not exists then
+			table.insert(Assets, { Id = msg.Id, Type = 'Upload', Quantity = msg.Tags.Quantity })
+			ao.send({
+				Target = reply_to,
+				Action = 'Add-Uploaded-Asset-Success',
+				Tags = {
+					Status = 'Success',
+					Message = 'Asset added to profile'
+				}
+			})
+		else
+			ao.send({
+				Target = reply_to,
+				Action = 'Validation-Error',
+				Tags = {
+					Status = 'Error',
 					Message = string.format(
-						'Failed to parse data, received: %s. %s.', msg.Data,
-						'Data must be an object - { Id, Quantity }')
+						'Asset with Id %s already exists', msg.Id)
 				}
 			})
 		end
 	end)
 
--- Data - { Id, Name, Items }
+-- Tag - { SortOrder = # }, Assignment from Spawn, msg.Id is the collection ID. Sort Order = highest to lowest
+-- todo handle resorting of other items if sortOrder is passed.
 Handlers.add('Add-Collection', Handlers.utils.hasMatchingTag('Action', 'Add-Collection'),
 	function(msg)
-		-- local authorizeResult, message = authorizeRoles(msg)
-		-- if not authorizeResult then
-		--     ao.send(message)
-		--     return
-		-- end
+		local reply_to = msg.Target or msg.From
+		local authorizeResult, message = authorizeRoles(msg)
+		 if not authorizeResult then
+		     ao.send(message)
+		     return
+		 end
 
-		local decode_check, data = decode_message_data(msg.Data)
+		if not check_valid_address(msg.Id) then
+			ao.send({ reply_to, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Collection Id must be a valid address' } })
+			return
+		end
 
-		if decode_check and data then
-			if not data.Id or not data.Name then
-				ao.send({
-					Target = msg.From,
-					Action = 'Input-Error',
-					Tags = {
-						Status = 'Error',
-						Message =
-						'Invalid arguments, required { Id, Name }'
-					}
-				})
-				return
+		local exists = false
+		for _, collection in ipairs(Collections) do
+			if collection.Id == msg.Id then
+				exists = true
+				break
 			end
+		end
 
-			if not check_valid_address(data.Id) then
-				ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Collection Id must be a valid address' } })
-				return
+		-- Ensure the highest SortOrder for new items
+		local highestSortOrder = 0
+		for _, collection in ipairs(Collections) do
+			if collection.SortOrder > highestSortOrder then
+				highestSortOrder = collection.SortOrder
 			end
+		end
 
-			local exists = false
-			for _, collection in ipairs(Collections) do
-				if collection.Id == data.Id then
-					exists = true
-					break
-				end
-			end
-
-			-- Ensure the highest SortOrder for new items
-			local highestSortOrder = 0
-			for _, collection in ipairs(Collections) do
-				if collection.SortOrder > highestSortOrder then
-					highestSortOrder = collection.SortOrder
-				end
-			end
-
-			if not exists then
-				table.insert(Collections, { Id = data.Id, Name = data.Name, SortOrder = highestSortOrder + 1 })
-				sort_collections()
-				ao.send({
-					Target = msg.From,
-					Action = 'Add-Collection-Success',
-					Tags = {
-						Status = 'Success',
-						Message = 'Collection added'
-					}
-				})
-			else
-				ao.send({
-					Target = msg.From,
-					Action = 'Validation-Error',
-					Tags = {
-						Status = 'Error',
-						Message = string.format(
-							'Collection with Id %s already exists', data.Id)
-					}
-				})
-			end
+		if not exists then
+			table.insert(Collections, { Id = msg.Id, SortOrder = highestSortOrder + 1 })
+			sort_collections()
+			ao.send({
+				Target = reply_to,
+				Action = 'Add-Collection-Success',
+				Tags = {
+					Status = 'Success',
+					Message = 'Collection added'
+				}
+			})
 		else
 			ao.send({
-				Target = msg.From,
-				Action = 'Input-Error',
+				Target = reply_to,
+				Action = 'Validation-Error',
 				Tags = {
 					Status = 'Error',
 					Message = string.format(
-						'Failed to parse data, received: %s. %s.', msg.Data,
-						'Data must be an object - { Id, Name, Items }')
+						'Collection with Id %s already exists', msg.Id)
 				}
 			})
 		end
@@ -501,6 +452,7 @@ Handlers.add('Add-Collection', Handlers.utils.hasMatchingTag('Action', 'Add-Coll
 -- Data - { Ids: [Id1, Id2, ..., IdN] }
 Handlers.add('Update-Collection-Sort', Handlers.utils.hasMatchingTag('Action', 'Update-Collection-Sort'),
 	function(msg)
+		local reply_to = msg.Target or msg.From
 		local authorizeResult, message = authorizeRoles(msg)
 		if not authorizeResult then
 			ao.send(message)
@@ -512,7 +464,7 @@ Handlers.add('Update-Collection-Sort', Handlers.utils.hasMatchingTag('Action', '
 		if decode_check and data then
 			if not data.Ids then
 				ao.send({
-					Target = msg.From,
+					Target = reply_to,
 					Action = 'Input-Error',
 					Tags = {
 						Status = 'Error',
@@ -568,7 +520,7 @@ Handlers.add('Update-Collection-Sort', Handlers.utils.hasMatchingTag('Action', '
 			sort_collections()
 
 			ao.send({
-				Target = msg.From,
+				Target = reply_to,
 				Action = 'Update-Collection-Sort-Success',
 				Tags = {
 					Status = 'Success',
@@ -577,7 +529,7 @@ Handlers.add('Update-Collection-Sort', Handlers.utils.hasMatchingTag('Action', '
 			})
 		else
 			ao.send({
-				Target = msg.From,
+				Target = reply_to,
 				Action = 'Input-Error',
 				Tags = {
 					Status = 'Error',
@@ -655,6 +607,7 @@ Handlers.add('Run-Action', Handlers.utils.hasMatchingTag('Action', 'Run-Action')
 		end
 	end)
 
+-- Tags { Proxy-Action, Proxy-Target }, Data = Message content or JSON
 Handlers.add('Proxy-Action', Handlers.utils.hasMatchingTag('Action', 'Proxy-Action'),
 		function(msg)
 			local authorizeResult, message = authorizeRoles(msg)
