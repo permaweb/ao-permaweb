@@ -1,17 +1,15 @@
-# AOS Test Kit Template
+# AO Permaweb
+
+This repo is a template for building and testing AOS processes for the Permaweb.
 
 This is a simple github template repo that can be used to build and maintain AOS processes. 
 It is setup to test locally out of the box, deploy when using trunk-based deployment.
 
-## How it works?
 
-You can create a new repo with this template and then utilize TDD to construct your AOS process, 
-step by step, test by test. This workflow gives you a nice developer experience and an extremely
-easy way to test and publish your code.
 
-## First Test
+## Lua Unit Testing
 
-In test/main.test.js after the load source test, create a test that designs a prompt function.
+
 
 ```js
 test('create a prompt', async () => {
