@@ -249,7 +249,7 @@ Handlers.add('Prepare-Database', Handlers.utils.hasMatchingTag('Action', 'Prepar
         end)
 
 -- Data - { ProfileIds [] }
-Handlers.add('Get-Metadata-By-Profile-Ids', Handlers.utils.hasMatchingTag('Action', 'Get-Metadata-By-Profile-Ids'),
+Handlers.add('Get-Metadata-By-ProfileIds', Handlers.utils.hasMatchingTag('Action', 'Get-Metadata-By-ProfileIds'),
         function(msg)
 
             local decode_check, data = decode_message_data(msg.Data)
