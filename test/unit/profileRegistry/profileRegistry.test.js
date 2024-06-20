@@ -68,8 +68,8 @@ test("should read all metadata", async () => {
 
 test('should get metadata for profile ids', async () => {
     const inputData = { ProfileIds: [PROFILE_A_ID] }
-    const result = await Send({ Action: "Get-Metadata-By-Profile-Ids", Data: JSON.stringify(inputData) }, )
-    logSendResult(result, "Get-Metadata-By-Profile-Ids")
+    const result = await Send({ Action: "Get-Metadata-By-ProfileIds", Data: JSON.stringify(inputData) }, )
+    logSendResult(result, "Get-Metadata-By-ProfileIds")
     const resultMessages = findMessageByTag(result.Messages, "Status");
     assert.equal(getTag(resultMessages[0], "Status"), "Success")
     const data = resultMessages[0].Data;
