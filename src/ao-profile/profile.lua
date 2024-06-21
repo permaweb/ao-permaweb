@@ -109,7 +109,7 @@ local function sort_collections()
 	end)
 end
 
-local function update_profile(msg)
+local function update_profile_v000(msg)
 	local authorizeResult, message = authorizeRoles(msg)
 	if not authorizeResult then
 		ao.send(message)
@@ -260,7 +260,7 @@ local function update_profile_v001(msg)
 end
 
 -- Data - { Id, Quantity }. This should be sunset eventually as it doesn't perform any validation
-local function add_uploaded_asset(msg)
+local function add_uploaded_asset_v000(msg)
 	local decode_check, data = decode_message_data(msg.Data)
 
 	if decode_check and data then
@@ -387,7 +387,7 @@ local function add_uploaded_asset_v001(msg)
 	end
 end
 
-local function add_collection(msg)
+local function add_collection_v000(msg)
 	local decode_check, data = decode_message_data(msg.Data)
 
 	if decode_check and data then
@@ -516,15 +516,15 @@ end
 
 local HANDLER_VERSIONS = {
 	add_uploaded_asset = {
-		["0.0.0"] = add_uploaded_asset,
+		["0.0.0"] = add_uploaded_asset_v000,
 		["0.0.1"] = add_uploaded_asset_v001,
 	},
 	add_collection = {
-		["0.0.0"] = add_collection,
+		["0.0.0"] = add_collection_v000,
 		["0.0.1"] = add_collection_v001,
 	},
 	update_profile = {
-		["0.0.0"] = update_profile,
+		["0.0.0"] = update_profile_v000,
 		["0.0.1"] = update_profile_v001,
 	}
 }

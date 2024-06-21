@@ -32,7 +32,7 @@ local function is_authorized(profile_id, address)
     return authorized
 end
 
-local function process_profile_action(msg, _)
+local function process_profile_action_v000(msg, _)
     -- This was bugged in the previous version, was using Create-Profile always which sent nil.
     -- This handler
     local profile_id_to_check_for_update = msg.From
@@ -128,7 +128,7 @@ local function process_profile_action(msg, _)
                 Status = 'ERROR',
                 Message = step_status
             },
-            Data = { DB_STEP_MSG = step_status }
+            Data = { DB_STEP_MSG = step_status, DB_ERROR = Db:errmsg(), Input = json.encode(data) }
         })
         return json.encode({ Code = step_status })
     end
@@ -317,7 +317,7 @@ end
 -- Verisioned handler definitions and processing logic
 local HANDLER_VERSIONS = {
     process_profile_action = {
-        ["0.0.0"] = process_profile_action,
+        ["0.0.0"] = process_profile_action_v000,
         ["0.0.1"] = process_profile_action_v001,
     },
 }
@@ -656,7 +656,7 @@ Handlers.add('Read-Auth', Handlers.utils.hasMatchingTag('Action', 'Read-Auth'),
                 for row in Db:nrows('SELECT profile_id, delegate_address, role FROM ao_profile_authorization') do
                     table.insert(metadata, {
                         ProfileId = row.profile_id,
-                        MaybeDelegatedAddress = row.delegate_address,
+                        CallerAddress = row.delegate_address,
                         Role = row.role,
                     })
                 end
