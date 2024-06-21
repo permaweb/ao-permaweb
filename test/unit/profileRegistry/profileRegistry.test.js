@@ -35,7 +35,7 @@ test("should read all metadata", async () => {
     TODO: write a migration test: new lua, migration handler by owner only, supports same methods
  */
 test("should create profile in registry", async () => {
-    const inputData = { AuthorizedAddress: AUTHORIZED_ADDRESS_A, UserName: PROFILE_A_USERNAME }
+    const inputData = { AuthorizedAddress: AUTHORIZED_ADDRESS_A, UserName: PROFILE_A_USERNAME, DateCreated: 125555, DateUpdated: 125555 }
     const result = await Send({ From: PROFILE_A_ID, Action: "Create-Profile", Data: JSON.stringify(inputData) })
     logSendResult(result, 'Create-Profile-1');
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
@@ -54,8 +54,8 @@ test("should read auth table", async () => {
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
 test("should update profile in registry", async () => {
-    const inputData = { DisplayName: "Who" }
-    const result = await Send({ Target: PROFILE_A_ID, From: AUTHORIZED_ADDRESS_A, Action: "Update-Profile", Data: JSON.stringify(inputData) })
+    const inputData = { DisplayName: "Who", DateCreated: 125555, DateUpdated: 126666 }
+    const result = await Send({ Target: PROFILE_A_ID, From: AUTHORIZED_ADDRESS_A, Action: "Create-Profile", Data: JSON.stringify(inputData) })
     logSendResult(result, 'Update-Profile-1');
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
