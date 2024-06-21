@@ -109,6 +109,156 @@ local function sort_collections()
 	end)
 end
 
+local function update_profile(msg)
+	local authorizeResult, message = authorizeRoles(msg)
+	if not authorizeResult then
+		ao.send(message)
+		return
+	end
+
+	local decode_check, data = decode_message_data(msg.Data)
+
+	if decode_check and data then
+		if not check_required_data(data, msg.Tags, { "UserName", "DisplayName", "Description", "CoverImage", "ProfileImage" }) then
+			ao.send({
+				Target = msg.From,
+				Action = 'Input-Error',
+				Tags = {
+					Status = 'Error',
+					EMessage =
+					'Invalid arguments, required at least one of { UserName, DisplayName, Description, CoverImage, ProfileImage }'
+				}
+			})
+			return
+		end
+
+		Profile.UserName = msg.Tags.UserName or data.UserName or Profile.UserName or ''
+		Profile.DisplayName = msg.Tags.DisplayName or data.DisplayName or Profile.DisplayName or ''
+		Profile.Description = msg.Tags.Description or data.Description or Profile.Description or ''
+		Profile.CoverImage = msg.Tags.CoverImage or data.CoverImage or Profile.CoverImage or ''
+		Profile.ProfileImage = msg.Tags.ProfileImage or data.ProfileImage or Profile.ProfileImage or ''
+		Profile.DateCreated = Profile.DateCreated or msg.Timestamp
+		Profile.DateUpdated = msg.Timestamp
+
+		-- if FirstRunCompleted then
+		--     ao.assign({Processes = { REGISTRY }, Message = msg.Id})
+		-- else
+		ao.send({
+			Target = REGISTRY,
+			Action = 'Create-Profile',
+			Data = json.encode({
+				AuthorizedAddress = msg.From,
+				UserName = Profile.UserName or nil,
+				DisplayName = Profile.DisplayName or nil,
+				Description = Profile.Description or nil,
+				CoverImage = Profile.CoverImage or nil,
+				ProfileImage = Profile.ProfileImage or nil,
+				DateCreated = Profile.DateCreated,
+				DateUpdated = Profile.DateUpdated
+			}),
+			Tags = msg.Tags
+		})
+		FirstRunCompleted = true
+		-- end
+
+		ao.send({
+			Target = msg.From,
+			Action = 'Profile-Success',
+			Tags = {
+				Status = 'Success',
+				Message = 'Profile updated'
+			}
+		})
+	else
+		ao.send({
+			Target = msg.From,
+			Action = 'Input-Error',
+			Tags = {
+				Status = 'Error',
+				EMessage = string.format(
+						'Failed to parse data, received: %s. %s.', msg.Data,
+						'Data must be an object - { UserName, DisplayName, Description, CoverImage, ProfileImage }')
+			}
+		})
+	end
+end
+
+local function update_profile_v001(msg)
+	local authorizeResult, message = authorizeRoles(msg)
+	if not authorizeResult then
+		ao.send(message)
+		return
+	end
+
+	local decode_check, data = decode_message_data(msg.Data)
+	create_required_data = { "UserName" }
+	update_required_data = { "UserName", "DisplayName", "Description", "CoverImage", "ProfileImage" }
+
+	if decode_check and data then
+		if not check_required_data(data, msg.Tags, FirstRunCompleted and update_required_data or create_required_data) then
+			ao.send({
+				Target = msg.From,
+				Action = 'Input-Error',
+				Tags = {
+					Status = 'Error',
+					EMessage =
+					'Invalid data or Tags, required at least Username for creation, or one of { UserName, DisplayName, Description, CoverImage, ProfileImage } for updates'
+				}
+			})
+			return
+		end
+
+		local function getUpdatedProfileField(tagField, dataField, profileField)
+			if tagField == "" then
+				return nil
+			end
+			if dataField == "" then
+				return nil
+			end
+			return tagField or dataField or profileField
+		end
+
+		Profile.UserName = getUpdatedProfileField(msg.Tags.UserName, data.UserName, Profile.UserName)
+		Profile.DisplayName = getUpdatedProfileField(msg.Tags.DisplayName, data.DisplayName, Profile.DisplayName)
+		Profile.Description = getUpdatedProfileField(msg.Tags.Description, data.Description, Profile.Description)
+		Profile.CoverImage = getUpdatedProfileField(msg.Tags.CoverImage, data.CoverImage, Profile.CoverImage)
+		Profile.ProfileImage = getUpdatedProfileField(msg.Tags.ProfileImage, data.ProfileImage, Profile.ProfileImage)
+		Profile.DateCreated = Profile.DateCreated or msg.Timestamp
+		Profile.DateUpdated = msg.Timestamp
+
+		if FirstRunCompleted then
+			ao.assign({Processes = { REGISTRY }, Message = msg.Id})
+		else
+			ao.assign({Processes = { REGISTRY }, Message = ao.id})
+			FirstRunCompleted = true
+		end
+
+		if Profile.Version ~= CurrentProfileVersion then
+			Profile.Version = CurrentProfileVersion
+		end
+
+		ao.send({
+			Target = msg.From,
+			Action = 'Profile-Success',
+			Tags = {
+				Status = 'Success',
+				Message = 'Profile updated'
+			}
+		})
+	else
+		ao.send({
+			Target = msg.From,
+			Action = 'Input-Error',
+			Tags = {
+				Status = 'Error',
+				EMessage = string.format(
+						'Failed to parse data, received: %s. %s.', msg.Data,
+						'Data must be an object - { UserName, DisplayName, Description, CoverImage, ProfileImage }')
+			}
+		})
+	end
+end
+
 -- Data - { Id, Quantity }. This should be sunset eventually as it doesn't perform any validation
 local function add_uploaded_asset(msg)
 	local decode_check, data = decode_message_data(msg.Data)
@@ -373,12 +523,16 @@ local HANDLER_VERSIONS = {
 		["0.0.0"] = add_collection,
 		["0.0.1"] = add_collection_v001,
 	},
+	update_profile = {
+		["0.0.0"] = update_profile,
+		["0.0.1"] = update_profile_v001,
+	}
 }
 
 local function version_dispatcher(action, msg)
 	-- eventually once we start versioning, we potentially make the non-versioned the latest/default,
 	-- and require version for backwards compatability
-	local version = msg.Tags.Version or '0.0.0'  -- Default named version if not specified
+	local version = msg.Tags and msg.Tags.ProfileVersion or '0.0.0'  -- Default named version if not specified
 	local handlers = HANDLER_VERSIONS[action]
 
 	if handlers and handlers[version] then
@@ -427,79 +581,7 @@ None. This function sends messages to the sender or the registry but does not re
 --]]
 Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-Profile'),
 	function(msg)
-		local authorizeResult, message = authorizeRoles(msg)
-		if not authorizeResult then
-			ao.send(message)
-			return
-		end
-
-		local decode_check, data = decode_message_data(msg.Data)
-		create_required_data = { "UserName" }
-		update_required_data = { "UserName", "DisplayName", "Description", "CoverImage", "ProfileImage" }
-
-		if decode_check and data then
-			if not check_required_data(data, msg.Tags, FirstRunCompleted and update_required_data or create_required_data) then
-				ao.send({
-					Target = msg.From,
-					Action = 'Input-Error',
-					Tags = {
-						Status = 'Error',
-						EMessage =
-						'Invalid data or Tags, required at least Username for creation, or one of { UserName, DisplayName, Description, CoverImage, ProfileImage } for updates'
-					}
-				})
-				return
-			end
-
-			local function getUpdatedProfileField(tagField, dataField, profileField)
-				if tagField == "" then
-					return nil
-				end
-				if dataField == "" then
-					return nil
-				end
-				return tagField or dataField or profileField
-			end
-
-			Profile.UserName = getUpdatedProfileField(msg.Tags.UserName, data.UserName, Profile.UserName)
-			Profile.DisplayName = getUpdatedProfileField(msg.Tags.DisplayName, data.DisplayName, Profile.DisplayName)
-			Profile.Description = getUpdatedProfileField(msg.Tags.Description, data.Description, Profile.Description)
-			Profile.CoverImage = getUpdatedProfileField(msg.Tags.CoverImage, data.CoverImage, Profile.CoverImage)
-			Profile.ProfileImage = getUpdatedProfileField(msg.Tags.ProfileImage, data.ProfileImage, Profile.ProfileImage)
-			Profile.DateCreated = Profile.DateCreated or msg.Timestamp
-			Profile.DateUpdated = msg.Timestamp
-
-			if FirstRunCompleted then
-				ao.assign({Processes = { REGISTRY }, Message = msg.Id})
-			else
-				ao.assign({Processes = { REGISTRY }, Message = ao.id})
-				FirstRunCompleted = true
-			end
-			
-			if Profile.Version ~= CurrentProfileVersion then
-				Profile.Version = CurrentProfileVersion
-			end
-
-			ao.send({
-				Target = msg.From,
-				Action = 'Profile-Success',
-				Tags = {
-					Status = 'Success',
-					Message = 'Profile updated'
-				}
-			})
-		else
-			ao.send({
-				Target = msg.From,
-				Action = 'Input-Error',
-				Tags = {
-					Status = 'Error',
-					EMessage = string.format(
-						'Failed to parse data, received: %s. %s.', msg.Data,
-						'Data must be an object - { UserName, DisplayName, Description, CoverImage, ProfileImage }')
-				}
-			})
-		end
+		version_dispatcher('update_profile', msg)
 	end)
 
 -- Data - { Target, Recipient, Quantity }
