@@ -32,9 +32,10 @@ local function is_authorized(profile_id, address)
     return authorized
 end
 
-local function process_profile_action(msg, profile_id_to_check_for_update)
+local function process_profile_action(msg, _)
     -- This was bugged in the previous version, was using Create-Profile always which sent nil.
-    profile_id_to_check_for_update = msg.From
+    -- This handler
+    local profile_id_to_check_for_update = msg.From
     local reply_to = msg.Target or msg.From
 
     local decode_check, data = decode_message_data(msg.Data)
@@ -323,9 +324,8 @@ local HANDLER_VERSIONS = {
 
 local function version_dispatcher(action, msg, arg)
     local decode_check, data = decode_message_data(msg.Data)
-    -- Current upgrade won't require a version from client, we have an easy check on data.AuthorizedAddress
-    -- otherwise default to 0.0.1
-    local version = decode_check and data.AuthorizedAddress and "0.0.0" or msg.Tags.Version or "0.0.1"
+    -- if the client doesn't pass a version, assume original code.
+    local version = msg.Tags and msg.Tags.ProfileVersion or "0.0.0"
     local handlers = HANDLER_VERSIONS[action]
 
     if handlers and handlers[version] then
