@@ -1,4 +1,3 @@
-local bint = require('.bint')(256)
 local json = require('json')
 
 -- Profile: {
@@ -11,7 +10,7 @@ local json = require('json')
 --   DateUpdated
 --	 Version
 -- }
-if not CurrentProfileVersion then CurrentProfileVersion = 0.1 end
+CurrentProfileVersion = 0.1
 
 if not Profile then Profile = {} end
 
@@ -29,7 +28,7 @@ if not Collections then Collections = {} end
 
 if not Roles then Roles = {} end
 
-REGISTRY = 'SNy4m-DrqxWl01YqGM4sxI8qCni-58re8uuJLvZPypY'
+REGISTRY = 'dWdBohXUJ22rfb8sSChdFh6oXJzbAtGe4tC6__52Zk4'
 
 local function check_valid_address(address)
 	if not address or type(address) ~= 'string' then
@@ -108,6 +107,292 @@ local function sort_collections()
 	table.sort(Collections, function(a, b)
 		return a.SortOrder < b.SortOrder
 	end)
+end
+
+-- Data - { Id, Quantity }. This should be sunset eventually as it doesn't perform any validation
+local function add_uploaded_asset(msg)
+	local decode_check, data = decode_message_data(msg.Data)
+
+	if decode_check and data then
+		if not data.Id or not data.Quantity then
+			ao.send({
+				Target = msg.From,
+				Action = 'Input-Error',
+				Tags = {
+					Status = 'Error',
+					Message =
+					'Invalid arguments, required { Id, Quantity }'
+				}
+			})
+			return
+		end
+
+		if not check_valid_address(data.Id) then
+			ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Asset Id must be a valid address' } })
+			return
+		end
+
+		local exists = false
+		for _, asset in ipairs(Assets) do
+			if asset.Id == data.Id then
+				exists = true
+				break
+			end
+		end
+
+		if not exists then
+			table.insert(Assets, { Id = data.Id, Type = 'Upload', Quantity = data.Quantity })
+			ao.send({
+				Target = msg.From,
+				Action = 'Add-Uploaded-Asset-Success',
+				Tags = {
+					Status = 'Success',
+					Message = 'Asset added to profile'
+				}
+			})
+		else
+			ao.send({
+				Target = msg.From,
+				Action = 'Validation-Error',
+				Tags = {
+					Status = 'Error',
+					Message = string.format(
+							'Asset with Id %s already exists', data.Id)
+				}
+			})
+		end
+	else
+		ao.send({
+			Target = msg.From,
+			Action = 'Input-Error',
+			Tags = {
+				Status = 'Error',
+				Message = string.format(
+						'Failed to parse data, received: %s. %s.', msg.Data,
+						'Data must be an object - { Id, Quantity }')
+			}
+		})
+	end
+end
+
+-- Tag - { Quantity = # } - Assignment from Spawn, msg.Id is the asset ID
+local function add_uploaded_asset_v001(msg)
+	local reply_to = msg.Target or msg.From
+	local authorizeResult, message = authorizeRoles(msg)
+	-- there's current a bug with sending back a message via assignment to msg.From
+	if not authorizeResult then
+		ao.send(message)
+		return
+	end
+
+	local quantity = msg.Tags.Quantity and tonumber(msg.Tags.Quantity)
+
+	if not quantity and quantity > 0 then
+		ao.send({
+			Target = reply_to,
+			Action = 'Input-Error',
+			Tags = {
+				Status = 'Error',
+				Message =
+				'Invalid argument, required Quantity tag on Atomic Asset Spawn must exist and be a number greater than 0 }'
+			}
+		})
+		return
+	end
+
+
+	if not check_valid_address(msg.Id) then
+		ao.send({ Target = reply_to, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Asset Id must be a valid address' } })
+		return
+	end
+
+	local exists = false
+	for _, asset in ipairs(Assets) do
+		if asset.Id == msg.Id then
+			exists = true
+			break
+		end
+	end
+
+	if not exists then
+		table.insert(Assets, { Id = msg.Id, Type = 'Upload', Quantity = msg.Tags.Quantity })
+		ao.send({
+			Target = reply_to,
+			Action = 'Add-Uploaded-Asset-Success',
+			Tags = {
+				Status = 'Success',
+				Message = 'Asset added to profile'
+			}
+		})
+	else
+		ao.send({
+			Target = reply_to,
+			Action = 'Validation-Error',
+			Tags = {
+				Status = 'Error',
+				Message = string.format(
+						'Asset with Id %s already exists', msg.Id)
+			}
+		})
+	end
+end
+
+local function add_collection(msg)
+	local decode_check, data = decode_message_data(msg.Data)
+
+	if decode_check and data then
+		if not data.Id or not data.Name then
+			ao.send({
+				Target = msg.From,
+				Action = 'Input-Error',
+				Tags = {
+					Status = 'Error',
+					Message =
+					'Invalid arguments, required { Id, Name }'
+				}
+			})
+			return
+		end
+
+		if not check_valid_address(data.Id) then
+			ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Collection Id must be a valid address' } })
+			return
+		end
+
+		local exists = false
+		for _, collection in ipairs(Collections) do
+			if collection.Id == data.Id then
+				exists = true
+				break
+			end
+		end
+
+		-- Ensure the highest SortOrder for new items
+		local highestSortOrder = 0
+		for _, collection in ipairs(Collections) do
+			if collection.SortOrder > highestSortOrder then
+				highestSortOrder = collection.SortOrder
+			end
+		end
+
+		if not exists then
+			table.insert(Collections, { Id = data.Id, Name = data.Name, SortOrder = highestSortOrder + 1 })
+			sort_collections()
+			ao.send({
+				Target = msg.From,
+				Action = 'Add-Collection-Success',
+				Tags = {
+					Status = 'Success',
+					Message = 'Collection added'
+				}
+			})
+		else
+			ao.send({
+				Target = msg.From,
+				Action = 'Validation-Error',
+				Tags = {
+					Status = 'Error',
+					Message = string.format(
+							'Collection with Id %s already exists', data.Id)
+				}
+			})
+		end
+	else
+		ao.send({
+			Target = msg.From,
+			Action = 'Input-Error',
+			Tags = {
+				Status = 'Error',
+				Message = string.format(
+						'Failed to parse data, received: %s. %s.', msg.Data,
+						'Data must be an object - { Id, Name, Items }')
+			}
+		})
+	end
+end
+
+local function add_collection_v001(msg)
+	local reply_to = msg.Target or msg.From
+	local authorizeResult, message = authorizeRoles(msg)
+	if not authorizeResult then
+		ao.send(message)
+		return
+	end
+
+	if not check_valid_address(msg.Id) then
+		ao.send({ reply_to, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Collection Id must be a valid address' } })
+		return
+	end
+
+	local exists = false
+	for _, collection in ipairs(Collections) do
+		if collection.Id == msg.Id then
+			exists = true
+			break
+		end
+	end
+
+	-- Ensure the highest SortOrder for new items
+	local highestSortOrder = 0
+	for _, collection in ipairs(Collections) do
+		if collection.SortOrder > highestSortOrder then
+			highestSortOrder = collection.SortOrder
+		end
+	end
+
+	if not exists then
+		table.insert(Collections, { Id = msg.Id, SortOrder = highestSortOrder + 1 })
+		sort_collections()
+		ao.send({
+			Target = reply_to,
+			Action = 'Add-Collection-Success',
+			Tags = {
+				Status = 'Success',
+				Message = 'Collection added'
+			}
+		})
+	else
+		ao.send({
+			Target = reply_to,
+			Action = 'Validation-Error',
+			Tags = {
+				Status = 'Error',
+				Message = string.format(
+						'Collection with Id %s already exists', msg.Id)
+			}
+		})
+	end
+end
+
+local HANDLER_VERSIONS = {
+	add_uploaded_asset = {
+		["0.0.0"] = add_uploaded_asset,
+		["0.0.1"] = add_uploaded_asset_v001,
+	},
+	add_collection = {
+		["0.0.0"] = add_collection,
+		["0.0.1"] = add_collection_v001,
+	},
+}
+
+local function version_dispatcher(action, msg)
+	-- eventually once we start versioning, we potentially make the non-versioned the latest/default,
+	-- and require version for backwards compatability
+	local version = msg.Tags.Version or '0.0.0'  -- Default named version if not specified
+	local handlers = HANDLER_VERSIONS[action]
+
+	if handlers and handlers[version] then
+		handlers[version](msg)
+	else
+		ao.send({
+			Target = msg.Target or msg.From,
+			Action = 'Versioning-Error',
+			Tags = {
+				Status = 'Error',
+				Message = string.format('Unsupported version %s for action %s', version, action)
+			}
+		})
+	end
 end
 
 Handlers.add('Info', Handlers.utils.hasMatchingTag('Action', 'Info'),
@@ -339,123 +624,16 @@ Handlers.add('Credit-Notice', Handlers.utils.hasMatchingTag('Action', 'Credit-No
 		end
 	end)
 
--- Tag - { Quantity = # } - Assignment from Spawn, msg.Id is the asset ID
 Handlers.add('Add-Uploaded-Asset', Handlers.utils.hasMatchingTag('Action', 'Add-Uploaded-Asset'),
-	function(msg)
-		local reply_to = msg.Target or msg.From
-		local authorizeResult, message = authorizeRoles(msg)
-		-- there's current a bug with sending back a message via assignment to msg.From
-		if not authorizeResult then
-		    ao.send(message)
-	        return
-		end
-
-		local quantity = msg.Tags.Quantity and tonumber(msg.Tags.Quantity)
-
-		if not quantity then
-			ao.send({
-				Target = reply_to,
-				Action = 'Input-Error',
-				Tags = {
-					Status = 'Error',
-					Message =
-					'Invalid argument, required Quantity tag on Atomic Asset Spawn must exist and be a number }'
-				}
-			})
-			return
-		end
-
-
-		if not check_valid_address(msg.Id) then
-			ao.send({ Target = reply_to, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Asset Id must be a valid address' } })
-			return
-		end
-
-		local exists = false
-		for _, asset in ipairs(Assets) do
-			if asset.Id == msg.Id then
-				exists = true
-				break
-			end
-		end
-
-		if not exists then
-			table.insert(Assets, { Id = msg.Id, Type = 'Upload', Quantity = msg.Tags.Quantity })
-			ao.send({
-				Target = reply_to,
-				Action = 'Add-Uploaded-Asset-Success',
-				Tags = {
-					Status = 'Success',
-					Message = 'Asset added to profile'
-				}
-			})
-		else
-			ao.send({
-				Target = reply_to,
-				Action = 'Validation-Error',
-				Tags = {
-					Status = 'Error',
-					Message = string.format(
-						'Asset with Id %s already exists', msg.Id)
-				}
-			})
-		end
-	end)
+		function(msg)
+			version_dispatcher('add_uploaded_asset', msg)
+		end)
 
 -- Tag - { SortOrder = # }, Assignment from Spawn, msg.Id is the collection ID. Sort Order = highest to lowest
 -- todo handle resorting of other items if sortOrder is passed.
 Handlers.add('Add-Collection', Handlers.utils.hasMatchingTag('Action', 'Add-Collection'),
 	function(msg)
-		local reply_to = msg.Target or msg.From
-		local authorizeResult, message = authorizeRoles(msg)
-		 if not authorizeResult then
-		     ao.send(message)
-		     return
-		 end
-
-		if not check_valid_address(msg.Id) then
-			ao.send({ reply_to, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Collection Id must be a valid address' } })
-			return
-		end
-
-		local exists = false
-		for _, collection in ipairs(Collections) do
-			if collection.Id == msg.Id then
-				exists = true
-				break
-			end
-		end
-
-		-- Ensure the highest SortOrder for new items
-		local highestSortOrder = 0
-		for _, collection in ipairs(Collections) do
-			if collection.SortOrder > highestSortOrder then
-				highestSortOrder = collection.SortOrder
-			end
-		end
-
-		if not exists then
-			table.insert(Collections, { Id = msg.Id, SortOrder = highestSortOrder + 1 })
-			sort_collections()
-			ao.send({
-				Target = reply_to,
-				Action = 'Add-Collection-Success',
-				Tags = {
-					Status = 'Success',
-					Message = 'Collection added'
-				}
-			})
-		else
-			ao.send({
-				Target = reply_to,
-				Action = 'Validation-Error',
-				Tags = {
-					Status = 'Error',
-					Message = string.format(
-						'Collection with Id %s already exists', msg.Id)
-				}
-			})
-		end
+			version_dispatcher('add_collection', msg)
 	end)
 
 -- Data - { Ids: [Id1, Id2, ..., IdN] }

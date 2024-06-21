@@ -32,10 +32,133 @@ local function is_authorized(profile_id, address)
     return authorized
 end
 
-local function process_profile_action(msg, create_profile)
+local function process_profile_action(msg, profile_id_to_check_for_update)
+    -- This was bugged in the previous version, was using Create-Profile always which sent nil.
+    profile_id_to_check_for_update = msg.From
+
+    local decode_check, data = decode_message_data(msg.Data)
+    if not decode_check then
+        ao.send({
+            Target = msg.From,
+            Action = 'ERROR',
+            Tags = {
+                Status = 'DECODE_FAILED',
+                Message = "Failed to decode data"
+            },
+            Data = { Code = "DECODE_FAILED" }
+        })
+        return
+    end
+    
+    local tags = msg.Tags or {}
+
+    local upsert_metadata_stmt = [[
+        INSERT INTO ao_profile_metadata (id, username, profile_image, cover_image, description, display_name, date_updated, date_created)
+            VALUES (:id, :username, :profile_image, :cover_image, :description, :display_name, :date_updated, :date_created)
+            ON CONFLICT(id) DO UPDATE SET
+                username = COALESCE(excluded.username, ao_profile_metadata.username),
+                profile_image = CASE
+                    WHEN excluded.profile_image IS NULL THEN NULL
+                    WHEN excluded.profile_image = 'NULL' THEN NULL
+                    ELSE COALESCE(excluded.profile_image, ao_profile_metadata.profile_image, NULL)
+                END,
+                cover_image = CASE
+                    WHEN excluded.cover_image IS NULL THEN NULL
+                    WHEN excluded.cover_image = 'NULL' THEN NULL
+                    ELSE COALESCE(excluded.cover_image, ao_profile_metadata.cover_image, NULL)
+                END,
+                description = CASE
+                    WHEN excluded.description IS NULL THEN NULL
+                    WHEN excluded.description = 'NULL' THEN NULL
+                    ELSE COALESCE(excluded.description, ao_profile_metadata.description, NULL)
+                END,
+                display_name = CASE
+                    WHEN excluded.display_name IS NULL THEN NULL
+                    WHEN excluded.display_name = 'NULL' THEN NULL
+                    ELSE COALESCE(excluded.display_name, ao_profile_metadata.display_name, NULL)
+                END,
+                date_updated = CASE
+                    WHEN excluded.date_updated IS NULL THEN excluded.date_created
+                    WHEN excluded.date_updated = "NULL" THEN excluded.date_created
+                    ELSE excluded.date_updated
+                END,
+                date_created = CASE
+                    WHEN excluded.date_created IS NULL THEN ao_profile_metadata.date_created
+                    WHEN excluded.date_created = "NULL" THEN ao_profile_metadata.date_created
+                    ELSE excluded.date_created
+                END
+    ]]
+    local upsert_meta = Db:prepare(upsert_metadata_stmt)
+
+    local names_bound = {
+        id = profile_id_to_check_for_update or msg.From,
+        username = tags.UserName or data.UserName,
+        profile_image = tags.ProfileImage or data.ProfileImage,
+        cover_image = tags.CoverImage or data.CoverImage,
+        description = tags.Description or data.Description,
+        display_name = tags.DisplayName or data.DisplayName,
+        date_updated = tags.DateUpdated or tags.DateCreated or data.DateUpdated or data.DateCreated,
+        date_created = tags.DateCreated or data.DateCreated or "NULL"
+    }
+
+    if upsert_meta then
+        upsert_meta:bind_names(names_bound)
+    else
+        ao.send({
+            Target = msg.From,
+            Action = 'DB_CODE',
+            Tags = {
+                Status = 'DB_PREPARE_FAILED',
+                Message = "DB PREPARED QUERY FAILED"
+            },
+            Data = { Code = "Failed to prepare insert statement" }
+        })
+        print("Failed to prepare insert statement")
+        return json.encode({ Code = 'DB_PREPARE_FAILED' })
+    end
+
+    local step_status = upsert_meta:step()
+    if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
+        ao.send({
+            Target = msg.From,
+            Action = 'DB_STEP_CODE',
+            Tags = {
+                Status = 'ERROR',
+                Message = step_status
+            },
+            Data = { DB_STEP_MSG = step_status }
+        })
+        return json.encode({ Code = step_status })
+    end
+
+    ao.send({
+        Target = msg.From,
+        Action = 'Success',
+        Tags = {
+            Status = 'Success',
+            Message = 'Record Inserted'
+        },
+        Data = json.encode(names_bound)
+    })
+
+    upsert_meta:finalize()
+    if (not profile_id_to_check_for_update) then
+        local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? LIMIT 1')
+        check:bind_values(msg.From)
+        if check:step() ~= sqlite3.ROW then
+            local insert_auth = Db:prepare(
+                    'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
+            insert_auth:bind_values(msg.From, data.AuthorizedAddress,  'Admin')
+            insert_auth:step()
+        end
+    end
+end
+
+local function process_profile_action_v001(msg, create_profile)
     local reply_to = msg.Tags.ProfileProcess or msg.Target
     -- currently using a tag for profileprocess because the target of the original message is not available.
     local profile_id = create_profile and msg.Id or msg.Tags.ProfileProcess
+
     if not create_profile and not is_authorized(profile_id, msg.From) then
          ao.send({
              Target = reply_to,
@@ -47,6 +170,7 @@ local function process_profile_action(msg, create_profile)
          })
          return
      end
+
     local decode_check, data = decode_message_data(msg.Data)
 
     local tags = msg.Tags or {}
@@ -182,9 +306,42 @@ local function process_profile_action(msg, create_profile)
         if check:step() ~= sqlite3.ROW then
             local insert_auth = Db:prepare(
                     'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
-            insert_auth:bind_values(msg.Id, msg.From, 'Owner')
+            insert_auth:bind_values(msg.Id, msg.From, 'Admin')
             insert_auth:step()
         end
+    end
+end
+
+-- Verisioned handler definitions and processing logic
+local HANDLER_VERSIONS = {
+    process_profile_action = {
+        ["0.0.0"] = process_profile_action,
+        ["0.0.1"] = process_profile_action_v001,
+    },
+}
+
+local function version_dispatcher(action, msg, arg)
+    local decode_check, data = decode_message_data(msg.Data)
+    -- Current upgrade won't require a version from client, we have an easy check on data.AuthorizedAddress
+    -- otherwise default to 0.0.1
+    local version = decode_check and data.AuthorizedAddress and "0.0.0" or msg.Tags.Version or "0.0.1"
+    local handlers = HANDLER_VERSIONS[action]
+
+    if handlers and handlers[version] then
+        if arg then
+            handlers[version](msg, arg)
+        else
+            handlers[version](msg)
+        end
+    else
+        ao.send({
+            Target = msg.Target or msg.From,
+            Action = 'Versioning-Error',
+            Tags = {
+                Status = 'Error',
+                Message = string.format('Unsupported version %s for action %s', version, action)
+            }
+        })
     end
 end
 
@@ -420,14 +577,14 @@ Handlers.add('Get-Profiles-By-Delegate', Handlers.utils.hasMatchingTag('Action',
 -- Create-Profile Handler (Original spawned profile message)
 Handlers.add('Create-Profile', Handlers.utils.hasMatchingTag('Action', 'Create-Profile'),
         function(msg)
-            process_profile_action(msg, true)
+            version_dispatcher('process_profile_action', msg, true)
         end)
 
 -- Update-Profile Handler
 Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-Profile'),
-    function(msg)
-        process_profile_action(msg, false)
-    end)
+        function(msg)
+            version_dispatcher('process_profile_action', msg, false)
+        end)
 
 Handlers.add('Count-Profiles', Handlers.utils.hasMatchingTag('Action', 'Count-Profiles'),
         function(msg)
@@ -461,8 +618,9 @@ Handlers.add('Read-Metadata', Handlers.utils.hasMatchingTag('Action', 'Read-Meta
         function(msg)
             local metadata = {}
             local status, err = pcall(function()
-                for row in Db:nrows('SELECT username, profile_image, cover_image, description, display_name, date_updated, date_created FROM ao_profile_metadata') do
+                for row in Db:nrows('SELECT id, username, profile_image, cover_image, description, display_name, date_updated, date_created FROM ao_profile_metadata') do
                     table.insert(metadata, {
+                        id = row.id,
                         Username = row.username,
                         ProfileImage = row.profile_image,
                         CoverImage = row.cover_image,
