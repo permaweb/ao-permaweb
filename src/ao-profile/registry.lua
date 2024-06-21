@@ -35,11 +35,12 @@ end
 local function process_profile_action(msg, profile_id_to_check_for_update)
     -- This was bugged in the previous version, was using Create-Profile always which sent nil.
     profile_id_to_check_for_update = msg.From
+    local reply_to = msg.Target or msg.From
 
     local decode_check, data = decode_message_data(msg.Data)
     if not decode_check then
         ao.send({
-            Target = msg.From,
+            Target = reply_to,
             Action = 'ERROR',
             Tags = {
                 Status = 'DECODE_FAILED',
@@ -49,7 +50,7 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
         })
         return
     end
-    
+
     local tags = msg.Tags or {}
 
     local upsert_metadata_stmt = [[
@@ -105,7 +106,7 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
         upsert_meta:bind_names(names_bound)
     else
         ao.send({
-            Target = msg.From,
+            Target = reply_to,
             Action = 'DB_CODE',
             Tags = {
                 Status = 'DB_PREPARE_FAILED',
@@ -120,7 +121,7 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
     local step_status = upsert_meta:step()
     if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
         ao.send({
-            Target = msg.From,
+            Target = reply_to,
             Action = 'DB_STEP_CODE',
             Tags = {
                 Status = 'ERROR',
@@ -132,7 +133,7 @@ local function process_profile_action(msg, profile_id_to_check_for_update)
     end
 
     ao.send({
-        Target = msg.From,
+        Target = reply_to,
         Action = 'Success',
         Tags = {
             Status = 'Success',
