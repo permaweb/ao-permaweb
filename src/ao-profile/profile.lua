@@ -514,6 +514,28 @@ local function add_collection_v001(msg)
 	end
 end
 
+local function compare_version( msg_version, handler_version )
+	local msg_version_parts = { string.match(msg_version, "(%d+)%.(%d+)%.(%d+)") }
+	local handler_version_parts = { string.match(handler_version, "(%d+)%.(%d+)%.(%d+)") }
+
+	for i = 1, 3 do
+		if tonumber(msg_version_parts[i]) > tonumber(handler_version_parts[i]) then
+			return 1
+		elseif tonumber(msg_version_parts[i]) < tonumber(handler_version_parts[i]) then
+			return -1
+		end
+	end
+
+	return 0
+end
+
+-- sort versions in descending order
+local function sort_versions(versions)
+	table.sort(versions, function(a, b)
+		return compare_version(a, b) > 0
+	end)
+end
+
 local HANDLER_VERSIONS = {
 	add_uploaded_asset = {
 		["0.0.0"] = add_uploaded_asset_v000,
@@ -532,11 +554,34 @@ local HANDLER_VERSIONS = {
 local function version_dispatcher(action, msg)
 	-- eventually once we start versioning, we potentially make the non-versioned the latest/default,
 	-- and require version for backwards compatability
-	local version = msg.Tags and msg.Tags.ProfileVersion or '0.0.0'  -- Default named version if not specified
+	local msg_version = msg.Tags and msg.Tags.ProfileVersion or '0.0.0'  -- Default named version if not specified
 	local handlers = HANDLER_VERSIONS[action]
 
-	if handlers and handlers[version] then
-		handlers[version](msg)
+	if handlers then
+		if handlers[msg_version] then
+			handlers[msg_version](msg)
+		else
+			local versions = {}
+			for key, _ in pairs(handlers) do
+				table.insert(versions, key)
+			end
+
+			table.sort(versions, function(a, b)
+				return compare_version(a, b) > 0
+			end)
+
+			local handlerVersion
+			for _, available_version in ipairs(versions) do
+				-- return the first version that is less than or equal to the message version
+				if compare_version(msg_version, available_version) >= 0 then
+
+					handlerVersion = available_version
+					break
+				end
+			end
+
+			handlers[handlerVersion](msg)
+		end
 	else
 		ao.send({
 			Target = msg.Target or msg.From,

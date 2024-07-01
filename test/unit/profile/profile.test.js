@@ -26,16 +26,16 @@ test('should fail to update if from is not owner', async () => {
     const statusMessages = findMessageByTag(updateResult.Messages, "Status");
     assert.equal(getTag(statusMessages[0], "Status"), "Error")
 })
-test('should update with data', async () => {
+test('should create initial metadata with data, create tx message to registry', async () => {
     const updateResult = await Send({ Id: "1112", ProfileVersion: '0.0.1', From: AUTHORIZED_ADDRESS_A, Action: "Update-Profile", Data: JSON.stringify({ UserName: "Steve", DisplayName: "Steverino" }) })
     logSendResult(updateResult, "Update-Profile--Pass")
     const statusMessages = findMessageByTag(updateResult.Messages, "Status");
     assert.equal(getTag(statusMessages[0], "Status"), "Success")
-    assert.equal(updateResult.Assignments[0].Message, "1112")
+    assert.equal(updateResult.Assignments[0].Message, PROFILE_A_ID)
 })
 
 test('should update with tags', async () => {
-    const updateResult = await Send({ Id: "1113", From: AUTHORIZED_ADDRESS_A, ProfileVersion: '0.0.1', Action: "Update-Profile", DisplayName: "El Steverino" })
+    const updateResult = await Send({ Id: "1113", From: AUTHORIZED_ADDRESS_A, ProfileVersion: '0.0.10', Action: "Update-Profile", DisplayName: "El Steverino" })
     logSendResult(updateResult, "Update-Profile")
     const statusMessages = findMessageByTag(updateResult.Messages, "Status");
     assert.equal(getTag(statusMessages[0], "Status"), "Success")
