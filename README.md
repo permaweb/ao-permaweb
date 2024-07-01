@@ -1,56 +1,18 @@
-# AOS Test Kit Template
+# AO Permaweb Monorepo
 
-This is a simple github template repo that can be used to build and maintain AOS processes. 
-It is setup to test locally out of the box, deploy when using trunk-based deployment.
+This monorepo contains various services and protocols for interacting with the Permaweb. Below is an overview of the included services and protocols.
 
-## How it works?
+## Services / Protocols
 
-You can create a new repo with this template and then utilize TDD to construct your AOS process, 
-step by step, test by test. This workflow gives you a nice developer experience and an extremely
-easy way to test and publish your code.
+### 1. Assets
+This service allows you to create and fetch assets on the Permaweb. It provides APIs to upload new assets and retrieve existing ones.
 
-## First Test
+### 2. Collections
+The collections service enables you to group assets into collections. This can be useful for organizing related assets and managing them as a single entity.
 
-In test/main.test.js after the load source test, create a test that designs a prompt function.
+### 3. Profiles
+The profiles service allows users to create and manage their profiles on the Permaweb. Profiles can include user information, preferences, and other metadata.
 
-```js
-test('create a prompt', async () => {
-  const result = await Send({Action: 'Eval', Data: 'Prompt = function () return "hi> " end' })
-  assert.equal(result.prompt, 'hi> ')
-})
-```
+## API
 
-Save then run `npm t`
-
-More Examples coming soon...
-
-## Manually Deploy
-
-```
-npm i --no-fund -g https://get_ao.g8way.io
-aos --load src/main.lua
-```
-
-## Deploy Setup
-
-In you github repo, you need to setup a few secrets:
-
-* Your Process Identifier `AOS`
-* Your Deployment Key `KEYFILE` (you want to base64 encode it)
-
-> NOTE: Don't have a deployment key, use `~/.aos.json`
-
-## SQLite Process Testing
-
-
-
-## CONTRIBUTIONS
-
-If you like this approach to building AOS processes, and have suggestions to make improves please
-submit issues or PRs. But lets keep it simple and easy to use.
-
-### Principles
-
-* Should be easy to use
-* Should emulate typing commands in the aos console
-* Should make testing fun with AOS
+An API is provided to expose all of the functionality of the services and protocols mentioned above. This API allows for easy integration with other applications and services.
