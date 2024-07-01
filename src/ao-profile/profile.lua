@@ -514,14 +514,14 @@ local function add_collection_v001(msg)
 	end
 end
 
-local function compare_version( msg_version, handler_version )
-	local msg_version_parts = { string.match(msg_version, "(%d+)%.(%d+)%.(%d+)") }
-	local handler_version_parts = { string.match(handler_version, "(%d+)%.(%d+)%.(%d+)") }
+local function compare_version( a_version, b_version )
+	local a_version_parts = { string.match(a_version, "(%d+)%.(%d+)%.(%d+)") }
+	local b_version_parts = { string.match(b_version, "(%d+)%.(%d+)%.(%d+)") }
 
 	for i = 1, 3 do
-		if tonumber(msg_version_parts[i]) > tonumber(handler_version_parts[i]) then
+		if tonumber(a_version_parts[i]) > tonumber(b_version_parts[i]) then
 			return 1
-		elseif tonumber(msg_version_parts[i]) < tonumber(handler_version_parts[i]) then
+		elseif tonumber(a_version_parts[i]) < tonumber(b_version_parts[i]) then
 			return -1
 		end
 	end
