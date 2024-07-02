@@ -17,7 +17,7 @@ local function checkValidAddress(address)
 end
 
 local function checkValidAmount(data)
-	return (math.type(tonumber(data)) == 'integer' or math.type(tonumber(data)) == 'float') and bint(data) > 0
+	return bint(data) > bint(0)
 end
 
 local function decodeMessageData(data)
@@ -46,7 +46,7 @@ Handlers.add('Info', Handlers.utils.hasMatchingTag('Action', 'Info'), function(m
 end)
 
 function Trusted(msg)
-	local mu = "fcoN_xJeisVsPXA-trzVAuIiqO3ydLQxM-L4XbrQKzY"
+	local mu = 'fcoN_xJeisVsPXA-trzVAuIiqO3ydLQxM-L4XbrQKzY'
 	-- return false if trusted
 	if msg.Owner == mu then
 		return false
@@ -57,10 +57,10 @@ function Trusted(msg)
 	return true
 end
 
-Handlers.prepend("qualify message",
+Handlers.prepend('qualify message',
 	Trusted,
 	function(msg)
-		print("This Msg is not trusted!")
+		print('This Msg is not trusted!')
 	end
 )
 
