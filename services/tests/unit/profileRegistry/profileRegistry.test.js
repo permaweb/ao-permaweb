@@ -16,7 +16,7 @@ const {Send} = SendFactory();
 test("------------------------------BEGIN TEST------------------------------")
 test("load profileRegistry source", async () => {
     try {
-        const code = fs.readFileSync('src/ao-profile/registry.lua', 'utf-8')
+        const code = fs.readFileSync('./profiles/registry.lua', 'utf-8')
         const result = await Send({ Action: "Eval", Data: code })
     } catch (error) {
         console.log(error)
@@ -55,7 +55,7 @@ test("should read auth table", async () => {
 })
 test("should update profile in registry", async () => {
     const inputData = { DisplayName: "Who", DateCreated: 125555, DateUpdated: 126666 }
-    const result = await Send({ Target: PROFILE_A_ID, From: AUTHORIZED_ADDRESS_A, Action: "Create-Profile", Data: JSON.stringify(inputData) })
+    const result = await Send({ Target: PROFILE_A_ID, From: AUTHORIZED_ADDRESS_A, Action: "Update-Profile", Data: JSON.stringify(inputData) })
     logSendResult(result, 'Update-Profile-1');
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })

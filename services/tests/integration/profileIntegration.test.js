@@ -15,7 +15,7 @@ const SendRegistry = RegistryProcess.Send;
 test("------------------------------BEGIN TEST------------------------------")
 test("load profileRegistry source", async () => {
     try {
-        const code = fs.readFileSync('src/ao-profile/registry.lua', 'utf-8')
+        const code = fs.readFileSync('./profiles/registry.lua', 'utf-8')
         const result = await SendRegistry({ Owner: AUTHORIZED_ADDRESS_A, From: AUTHORIZED_ADDRESS_A, Action: "Eval", Data: code })
     } catch (error) {
         console.log(error)
@@ -23,7 +23,7 @@ test("load profileRegistry source", async () => {
 })
 
 test('load source profile', async () => {
-    const code = fs.readFileSync('./src/ao-profile/profile.lua', 'utf-8')
+    const code = fs.readFileSync('./profiles/profile.lua', 'utf-8')
     const result = await SendProfile({ Owner: AUTHORIZED_ADDRESS_A, From: AUTHORIZED_ADDRESS_A, Action: "Eval", Data: code })
 })
 

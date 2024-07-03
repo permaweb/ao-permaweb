@@ -14,7 +14,7 @@ function getTag(msg, tagName) {
 }
 test("------------------------------P V000 BEGIN TEST------------------------------")
 test('load source profile', async () => {
-    const code = fs.readFileSync('./src/ao-profile/profile.lua', 'utf-8')
+    const code = fs.readFileSync('./profiles/profile.lua', 'utf-8')
     const result = await Send({ Owner: AUTHORIZED_ADDRESS_A, From: AUTHORIZED_ADDRESS_A, Action: "Eval", Data: code })
 })
 
