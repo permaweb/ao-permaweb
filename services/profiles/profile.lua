@@ -26,6 +26,20 @@ if not Assets then Assets = {} end
 
 if not Collections then Collections = {} end
 
+local HandlerRoles = {
+	['Update-Profile'] = {'Owner', 'Admin'},
+	['Add-Uploaded-Asset'] = {'Owner', 'Admin', 'Contributor'},
+	['Add-Collection'] = {'Owner', 'Admin', 'Contributor'},
+	['Update-Collection-Sort'] = {'Owner', 'Admin'},
+	['Transfer'] = {'Owner', 'Admin'},
+	['Debit-Notice'] = {'Owner', 'Admin'},
+	['Credit-Notice'] = {'Owner', 'Admin'},
+	['Action-Response'] = {'Owner', 'Admin'},
+	['Run-Action'] = {'Owner', 'Admin'},
+	['Proxy-Action'] = {'Owner', 'Admin'},
+	['Update-Role'] = {'Owner', 'Admin'}
+}
+
 if not Roles then Roles = {} end
 
 REGISTRY = 'dWdBohXUJ22rfb8sSChdFh6oXJzbAtGe4tC6__52Zk4'
@@ -35,6 +49,16 @@ local function check_valid_address(address)
 		return false
 	end
 	return string.match(address, "^[%w%-_]+$") ~= nil and #address == 43
+end
+
+local function check_valid_role(role, op)
+	if op == 'Remove' then
+		return true
+	end
+	if not role or type(role) ~= 'string' then
+		return false
+	end
+	return role == 'Admin' or role == 'Contributor' or role == 'Moderator' or role == 'Owner'
 end
 
 local function check_required_data(data, tags, required_fields)
@@ -74,20 +98,25 @@ local function authorizeRoles(msg)
 			}
 		}
 	end
+	-- change to 'admin', 'contributor', 'moderator', 'owner'
+	local existingRole = nil
 
-	local existingRole = false
 	for _, role in pairs(Roles) do
 		if role.AddressOrProfile == msg.From then
-			existingRole = true
+			existingRole = role.Role
 			break
 		end
 	end
+
+	-- determine if they have a role
+	-- determine if they can call the action handler
+	-- determine if owner-only actions are allowed
 
 	if not existingRole then
 		if msg.From == Owner then
 			-- If Roles table is empty or owner doesn't exist, authorize the owner
 			table.insert(Roles, {Role = "Owner", AddressOrProfile = msg.From})
-			existingRole = true
+			existingRole = 'Owner'
 		else
 			return false, {
 				Target = msg.Target or msg.From,
@@ -97,6 +126,40 @@ local function authorizeRoles(msg)
 					ErrorMessage = 'Unauthorized to access this handler'
 				}
 			}
+		end
+	else
+		-- now check if the role is allowed to access the handler
+		local handlerRoles = HandlerRoles[msg.Action]
+		if not handlerRoles then
+			return false, {
+				Target = msg.Target or msg.From,
+				Action = 'Authorization-Error',
+				Tags = {
+					Status = 'Error',
+					ErrorMessage = 'Handler does not exist'
+				}
+			}
+		else
+			local authorized = false
+			for _, role in pairs(handlerRoles) do
+				if role == existingRole then
+					authorized = true
+					break
+				end
+			end
+
+			if not authorized then
+				return false, {
+					Target = msg.Target or msg.From,
+					Action = 'Authorization-Error',
+					Tags = {
+						Status = 'Error',
+						ErrorMessage = 'Unauthorized to access this handler'
+					}
+				}
+
+			end
+			return authorized, nil
 		end
 	end
 
@@ -603,7 +666,8 @@ Handlers.add('Info', Handlers.utils.hasMatchingTag('Action', 'Info'),
 				Profile = Profile,
 				Assets = Assets,
 				Collections = Collections,
-				Owner = Owner
+				Owner = Owner,
+				Roles = Roles or {}
 			})
 		})
 	end)
@@ -628,6 +692,99 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 	function(msg)
 		version_dispatcher('update_profile', msg)
 	end)
+
+Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role'),
+	function(msg)
+		local authorizeResult, message = authorizeRoles(msg)
+		if not authorizeResult then
+			ao.send(message)
+			return
+		end
+
+		local decode_check, data = decode_message_data(msg.Data)
+
+		if decode_check and data then
+			if not data.Id or not data.Op then
+				ao.send({
+					Target = msg.From,
+					Action = 'Input-Error',
+					Tags = {
+						Status = 'Error',
+						Message =
+						'Invalid arguments, required { Id, Role }'
+					}
+				})
+				return
+			end
+
+			if not check_valid_address(data.Id) then
+				ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Id must be a valid address' }, Data = msg.Data })
+				return
+			end
+
+			if not check_valid_role(data.Role, data.Op) then
+				ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Role must be one of "Admin", "Contributor", "Moderator"' }, Data = msg.Data })
+				return
+			end
+
+			-- Add, update, or remove role
+			local role_index = -1
+			local current_role = nil
+			for i, role in ipairs(Roles) do
+				if role.AddressOrProfile == data.Id then
+					role_index = i
+					current_role = role.Role
+					break
+				end
+			end
+
+			if role_index == -1 then
+				if (data.Op == 'Add') then
+					table.insert(Roles, { AddressOrProfile = data.Id, Role = data.Role })
+				else
+					ao.send({
+						Target = msg.From,
+						Action = 'Update-Role-Failed',
+						Tags = {
+							Status = 'Error',
+							Message = 'Role Op not possible, role does not exist to remove or update'
+						}
+					})
+					return
+				end
+			else
+				if data.Op == 'Remove' and current_role ~= 'Owner' then
+					table.remove(Roles, role_index)
+				elseif data.Op == "Update" then
+					Roles[role_index].Role = data.Role
+				end
+			end
+
+			-- assign to registry if necessary
+
+			ao.send({
+				Target = msg.From,
+				Action = 'Update-Role-Success',
+				Tags = {
+					Status = 'Success',
+					Message = 'Role updated'
+				}
+			})
+		else
+			ao.send({
+				Target = msg.From,
+				Action = 'Input-Error',
+				Tags = {
+					Status = 'Error',
+					Message = string.format(
+						'Failed to parse data, received: %s. %s.', msg.Data,
+						'Data must be an object - { Id, Role }')
+				}
+			})
+		end
+
+	end)
+
 
 -- Data - { Target, Recipient, Quantity }
 Handlers.add('Transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'),
