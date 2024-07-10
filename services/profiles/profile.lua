@@ -26,6 +26,7 @@ if not Assets then Assets = {} end
 
 if not Collections then Collections = {} end
 
+-- keep this list consistent with registry
 local HandlerRoles = {
 	['Update-Profile'] = {'Owner', 'Admin'},
 	['Add-Uploaded-Asset'] = {'Owner', 'Admin', 'Contributor'},
@@ -40,6 +41,7 @@ local HandlerRoles = {
 	['Update-Role'] = {'Owner', 'Admin'}
 }
 
+-- Roles: { AddressOrProfile, Role } []
 if not Roles then Roles = {} end
 
 REGISTRY = 'dWdBohXUJ22rfb8sSChdFh6oXJzbAtGe4tC6__52Zk4'
@@ -293,6 +295,8 @@ local function update_profile_v001(msg)
 			ao.assign({Processes = { REGISTRY }, Message = msg.Id})
 		else
 			ao.assign({Processes = { REGISTRY }, Message = ao.id})
+			-- if data is missing this will fix it?
+			ao.assign({Processes = { REGISTRY }, Message = msg.Id})
 			FirstRunCompleted = true
 		end
 
@@ -693,6 +697,7 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 		version_dispatcher('update_profile', msg)
 	end)
 
+-- Data - { Id, Op, Role? }
 Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role'),
 	function(msg)
 		local authorizeResult, message = authorizeRoles(msg)
@@ -760,8 +765,8 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
 				end
 			end
 
-			-- assign to registry if necessary
-
+			-- assign to registry
+			ao.assign({Processes = { REGISTRY }, Message = ao.id})
 			ao.send({
 				Target = msg.From,
 				Action = 'Update-Role-Success',
