@@ -39,9 +39,11 @@ local function is_authorized(profile_id, user_id, roles)
     stmt:bind_values(profile_id, user_id)
     local authorized = false
     for row in stmt:nrows() do
-        if roles and roles[row.role] then
-            authorized = true
-            break
+        for _, role in ipairs(roles) do
+            if row.role == role then
+                authorized = true
+                break
+            end
         end
     end
     stmt:finalize()
@@ -525,7 +527,11 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
                 end
             end
 
-            if not is_authorized(msg.Target, msg.From, HandlerRoles['Update-Role']) then
+            local tags = msg.Tags or {}
+            local reply_to = tags.ProfileProcess or msg.Target
+            local profile_process_data_or_tag = tags.ProfileProcess or decode_check and data.ProfileProcess or nil
+            -- assigned message from user, to profile
+            if not is_authorized(profile_process_data_or_tag, msg.From, HandlerRoles['Update-Role']) then
                 ao.send({
                     Target = reply_to,
                     Action = 'Authorization-Error',
@@ -542,17 +548,17 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
             if data.Op == 'Add' then
                 stmt = Db:prepare(
                         'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
-                stmt:bind_values(msg.Target, data.Id, data.Role)
+                stmt:bind_values(profile_process_data_or_tag, data.Id, data.Role)
 
             elseif data.Op == 'Update' then
                 stmt = Db:prepare(
                         'UPDATE ao_profile_authorization SET role = ? WHERE profile_id = ? AND delegate_address = ?')
-                stmt:bind_values(data.Role, msg.Target, data.Id)
+                stmt:bind_values(data.Role, profile_process_data_or_tag, data.Id)
 
             elseif data.Op == 'Remove' then
                 stmt = Db:prepare(
                         'DELETE FROM ao_profile_authorization WHERE profile_id = ? AND delegate_address = ?')
-                stmt:bind_values(msg.Target, data.Id)
+                stmt:bind_values(profile_process_data_or_tag, data.Id)
             end
 
             local step_status = stmt:step()
