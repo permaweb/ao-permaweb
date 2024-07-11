@@ -54,7 +54,7 @@ local function check_valid_address(address)
 end
 
 local function check_valid_role(role, op)
-	if op == 'Remove' then
+	if op == 'Delete' then
 		return true
 	end
 	if not role or type(role) ~= 'string' then
@@ -752,13 +752,13 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
 						Action = 'Update-Role-Failed',
 						Tags = {
 							Status = 'Error',
-							Message = 'Role Op not possible, role does not exist to remove or update'
+							Message = 'Role Op not possible, role does not exist to delete or update'
 						}
 					})
 					return
 				end
 			else
-				if data.Op == 'Remove' and current_role ~= 'Owner' then
+				if data.Op == 'Delete' and current_role ~= 'Owner' then
 					table.remove(Roles, role_index)
 				elseif data.Op == "Update" then
 					Roles[role_index].Role = data.Role

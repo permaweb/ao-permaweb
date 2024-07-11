@@ -33,12 +33,16 @@ test("should read all metadata", async () => {
 /*
     TODO: write a migration test: new lua, migration handler by owner only, supports same methods
  */
-test("should create profile in registry v000", async () => {
+test("should create profile A in registry v000", async () => {
     // recieve profile data via send from profile
     const inputData = { AuthorizedAddress: AUTHORIZED_ADDRESS_A, UserName: PROFILE_A_USERNAME, DateCreated: 125555, DateUpdated: 125555 }
     const result = await Send({ From: PROFILE_A_ID, Action: "Create-Profile", Data: JSON.stringify(inputData) })
     // logSendResult(result, 'Create-Profile-A');
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
+    const readData = { ProfileId: PROFILE_A_ID }
+    const readResult = await Send({Action: "Read-Profile", Data: JSON.stringify(readData)})
+    logSendResult(readResult, "Read-Profile")
+    assert.equal(getTag(readResult?.Messages[0], "Status"), "Success")
 })
 
 test("should create profile in registry v001", async () => {
@@ -47,20 +51,10 @@ test("should create profile in registry v001", async () => {
     const result = await Send({ Id: PROFILE_B_ID, From: AUTHORIZED_ADDRESS_B, Action: "Create-Profile", Data: JSON.stringify(inputData) })
     logSendResult(result, 'Create-Profile-B');
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
-})
-
-test("should read first profile A", async () => {
-    const inputData = { ProfileId: PROFILE_A_ID }
-    const result = await Send({Action: "Read-Profile", Data: JSON.stringify(inputData)})
-    logSendResult(result, "Read-Profile")
-    assert.equal(getTag(result?.Messages[0], "Status"), "Success")
-})
-
-test("should read second profile B", async () => {
-    const inputData = { ProfileId: PROFILE_B_ID }
-    const result = await Send({Action: "Read-Profile", Data: JSON.stringify(inputData)})
-    logSendResult(result, "Read-Profile")
-    assert.equal(getTag(result?.Messages[0], "Status"), "Success")
+    const readData = { ProfileId: PROFILE_B_ID }
+    const readResult = await Send({Action: "Read-Profile", Data: JSON.stringify(readData)})
+    logSendResult(readResult, "Read-Profile")
+    assert.equal(getTag(readResult?.Messages[0], "Status"), "Success")
 })
 
 //-- TODO handle no results properly
@@ -125,7 +119,6 @@ test('should add, update, remove role', async () => {
     logSendResult(unauthFailAddResult, "Unauth-Fail-Role")
     const statusMessages = findMessageByTag(unauthFailAddResult.Messages, "Status");
     assert.equal(getTag(statusMessages[0], "Status"), "Error")
-    const unauthFailInfo = await Send({Action: "Info", ProfileVersion: '0.0.1'})
 
     const roleAddResult = await Send({
         Id: "1114",
@@ -137,39 +130,49 @@ test('should add, update, remove role', async () => {
     })
     logSendResult(roleAddResult, "Add-Role")
     // read role
-    const authResult = await Send({Action: "Read-Auth"})
-    logSendResult(authResult, "Read-Auth")
-    assert.equal(getTag(authResult?.Messages[0], "Status"), "Success")
+    const roleReadResultAdd = await Send({Action: "Read-Auth"})
+    logSendResult(roleReadResultAdd, "Read-Auth-After-Add")
+    assert.equal(getTag(roleReadResultAdd?.Messages[0], "Status"), "Success")
     assert.equal(
-        JSON.parse(authResult.Messages[0].Data).find(r => r.CallerAddress === AUTHORIZED_ADDRESS_B)['Role'],
+        JSON.parse(roleReadResultAdd.Messages[0].Data).find(r => r.CallerAddress === AUTHORIZED_ADDRESS_B && r.ProfileId === PROFILE_A_ID)['Role'],
         "Admin"
     )
-    // const updateResult = await Send({
-    //     Id: "1114",
-    //     From: AUTHORIZED_ADDRESS_A,
-    //     ProfileVersion: '0.0.1', // ignored
-    //     ProfileProcess: PROFILE_A_ID,
-    //     Action: "Update-Role",
-    //     Data: JSON.stringify({Role: "Contributor", Id: AUTHORIZED_ADDRESS_B, Op: "Update"})
-    // })
-    // // logSendResult(updateResult, "Result2")
-    // const updateinfo = await Send({Action: "Info", ProfileVersion: '0.0.1'})
-    // // logSendResult(updateinfo, "Info2")
-    // assert.equal(
-    //     JSON.parse(updateinfo.Messages[0].Data)["Roles"].find(r => r.Role === "Contributor")['AddressOrProfile'],
-    //     AUTHORIZED_ADDRESS_B
-    // )
-    // const roleRemoveResult = await Send({
-    //     Id: "1114",
-    //     From: AUTHORIZED_ADDRESS_A,
-    //     ProfileVersion: '0.0.1',
-    //     ProfileProcess: PROFILE_A_ID,
-    //     Action: "Update-Role",
-    //     Data: JSON.stringify({Id: AUTHORIZED_ADDRESS_B, Op: "Remove"})
-    // })
-    // // logSendResult(roleRemoveResult, "Info")
-    // const removeInfo = await Send({Action: "Info", ProfileVersion: '0.0.1'})
-    // assert.equal(JSON.parse(removeInfo.Messages[0].Data)["Roles"].length, 1)
+
+    const roleUpdateResult = await Send({
+        Id: "1114",
+        From: AUTHORIZED_ADDRESS_A,
+        ProfileVersion: '0.0.1',
+        ProfileProcess: PROFILE_A_ID,
+        Action: "Update-Role",
+        Data: JSON.stringify({Role: "Contributor", Id: AUTHORIZED_ADDRESS_B, Op: "Update"})
+    })
+    logSendResult(roleUpdateResult, "Update-Role")
+    // read role
+    const roleReadResultUpdate = await Send({Action: "Read-Auth"})
+    logSendResult(roleReadResultUpdate, "Read-Auth-After-Update")
+    assert.equal(getTag(roleReadResultUpdate?.Messages[0], "Status"), "Success")
+    assert.equal(
+        JSON.parse(roleReadResultUpdate.Messages[0].Data).find(r => r.CallerAddress === AUTHORIZED_ADDRESS_B && r.ProfileId === PROFILE_A_ID)['Role'],
+        "Contributor"
+    )
+
+    const roleDeleteResult = await Send({
+        Id: "1114",
+        From: AUTHORIZED_ADDRESS_A,
+        ProfileVersion: '0.0.1',
+        ProfileProcess: PROFILE_A_ID,
+        Action: "Update-Role",
+        Data: JSON.stringify({Role: "Contributor", Id: AUTHORIZED_ADDRESS_B, Op: "Delete"})
+    })
+    // logSendResult(roleDeleteResult, "Delete-Role")
+    // read role
+    const roleReadResultDelete = await Send({Action: "Read-Auth"})
+    logSendResult(roleReadResultDelete, "Read-Auth-After-Delete")
+    assert.equal(getTag(roleReadResultDelete?.Messages[0], "Status"), "Success")
+    assert.equal(
+        JSON.parse(roleReadResultDelete.Messages[0].Data).find(r => r.CallerAddress === AUTHORIZED_ADDRESS_B && r.ProfileId === PROFILE_A_ID),
+        undefined
+    )
 })
 
 // test("should add delegated addresses to auth table", async () => {
