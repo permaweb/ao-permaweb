@@ -545,6 +545,7 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
 
             -- handle add, update, or remove Ops
             local stmt
+            local typeofthings
             if data.Op == 'Add' then
                 stmt = Db:prepare(
                         'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
@@ -553,15 +554,31 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
             elseif data.Op == 'Update' then
                 stmt = Db:prepare(
                         'UPDATE ao_profile_authorization SET role = ? WHERE profile_id = ? AND delegate_address = ?')
+                typeofthings = type(stmt)
                 stmt:bind_values(data.Role, profile_process_data_or_tag, data.Id)
 
-            elseif data.Op == 'Remove' then
+            elseif data.Op == 'Delete' then
                 stmt = Db:prepare(
                         'DELETE FROM ao_profile_authorization WHERE profile_id = ? AND delegate_address = ?')
-                stmt:bind_values(profile_process_data_or_tag, data.Id)
-            end
+                typeofthings = type(stmt)
+                if not stmt then
+                    ao.send({
+                        Target = reply_to,
+                        Action = 'TYPEOFTHINGS',
+                        Tags = {
+                            Status = 'TYPE',
+                            Message = typeofthings
+                        }
+                    })
+                    return
+                end
+                    stmt:bind_values(profile_process_data_or_tag, data.Id)
+                end
+
+
 
             local step_status = stmt:step()
+            stmt:finalize()
             if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
                 print("Error: " .. Db:errmsg())
                 ao.send({
@@ -583,11 +600,10 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
                     Status = 'Success',
                     Message = 'Auth Record Inserted'
                 },
-                Data = json.encode(queryValues)
+                Data = json.encode({ ProfileId = profile_process_data_or_tag, DelegateAddress = data.Id, Role = data.Role })
             })
         end
 )
-
 
 Handlers.add('Count-Profiles', Handlers.utils.hasMatchingTag('Action', 'Count-Profiles'),
         function(msg)
