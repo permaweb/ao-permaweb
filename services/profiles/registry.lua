@@ -759,6 +759,18 @@ Handlers.add('Read-Profile', Handlers.utils.hasMatchingTag('Action', 'Read-Profi
                 return json.encode({ Code = step_status })
             end
 
+            if step_status == sqlite3.DONE then
+                ao.send({
+                    Target = msg.From,
+                    Action = 'Read-Profile-Error',
+                    Tags = {
+                        Status = 'Error',
+                        Message = 'Profile not found'
+                    }
+                })
+                return
+            end
+
             row = select_stmt:get_named_values()
             local metadata = {
                 ProfileId = row.id,

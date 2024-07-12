@@ -57,13 +57,12 @@ test("should create profile in registry v001", async () => {
     assert.equal(getTag(readResult?.Messages[0], "Status"), "Success")
 })
 
-//-- TODO handle no results properly
-// test("should return no records if profile does not exist", async () => {
-//     const inputData = { ProfileId: "PROFILE_C_CZLr2EkkwzIXP5A64QmtME6Bxa8GmbzI" }
-//     const result = await Send({Action: "Read-Profile", Data: JSON.stringify(inputData)})
-//     logSendResult(result, "Read-Profile")
-//     assert.equal(getTag(result?.Messages[0], "Status"), "Error")
-// })
+test("should return no records if profile does not exist", async () => {
+    const inputData = { ProfileId: "PROFILE_C_CZLr2EkkwzIXP5A64QmtME6Bxa8GmbzI" }
+    const result = await Send({Action: "Read-Profile", Data: JSON.stringify(inputData)})
+    logSendResult(result, "Read-Profile")
+    assert.equal(getTag(result?.Messages[0], "Status"), "Error")
+})
 
 test("should read auth table", async () => {
     const result = await Send({Action: "Read-Auth"})
