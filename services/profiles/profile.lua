@@ -174,81 +174,7 @@ local function sort_collections()
 	end)
 end
 
-local function update_profile_v000(msg)
-	local authorizeResult, message = authorizeRoles(msg)
-	if not authorizeResult then
-		ao.send(message)
-		return
-	end
-
-	local decode_check, data = decode_message_data(msg.Data)
-
-	if decode_check and data then
-		if not check_required_data(data, msg.Tags, { "UserName", "DisplayName", "Description", "CoverImage", "ProfileImage" }) then
-			ao.send({
-				Target = msg.From,
-				Action = 'Input-Error',
-				Tags = {
-					Status = 'Error',
-					EMessage =
-					'Invalid arguments, required at least one of { UserName, DisplayName, Description, CoverImage, ProfileImage }'
-				}
-			})
-			return
-		end
-
-		Profile.UserName = msg.Tags.UserName or data.UserName or Profile.UserName or ''
-		Profile.DisplayName = msg.Tags.DisplayName or data.DisplayName or Profile.DisplayName or ''
-		Profile.Description = msg.Tags.Description or data.Description or Profile.Description or ''
-		Profile.CoverImage = msg.Tags.CoverImage or data.CoverImage or Profile.CoverImage or ''
-		Profile.ProfileImage = msg.Tags.ProfileImage or data.ProfileImage or Profile.ProfileImage or ''
-		Profile.DateCreated = Profile.DateCreated or msg.Timestamp
-		Profile.DateUpdated = msg.Timestamp
-
-		-- if FirstRunCompleted then
-		--     ao.assign({Processes = { REGISTRY }, Message = msg.Id})
-		-- else
-		ao.send({
-			Target = REGISTRY,
-			Action = 'Create-Profile',
-			Data = json.encode({
-				AuthorizedAddress = msg.From,
-				UserName = Profile.UserName or nil,
-				DisplayName = Profile.DisplayName or nil,
-				Description = Profile.Description or nil,
-				CoverImage = Profile.CoverImage or nil,
-				ProfileImage = Profile.ProfileImage or nil,
-				DateCreated = Profile.DateCreated,
-				DateUpdated = Profile.DateUpdated
-			}),
-			Tags = msg.Tags
-		})
-		FirstRunCompleted = true
-		-- end
-
-		ao.send({
-			Target = msg.From,
-			Action = 'Profile-Success',
-			Tags = {
-				Status = 'Success',
-				Message = 'Profile updated'
-			}
-		})
-	else
-		ao.send({
-			Target = msg.From,
-			Action = 'Input-Error',
-			Tags = {
-				Status = 'Error',
-				EMessage = string.format(
-						'Failed to parse data, received: %s. %s.', msg.Data,
-						'Data must be an object - { UserName, DisplayName, Description, CoverImage, ProfileImage }')
-			}
-		})
-	end
-end
-
-local function update_profile_v001(msg)
+local function update_profile(msg)
 	local authorizeResult, message = authorizeRoles(msg)
 	if not authorizeResult then
 		ao.send(message)
@@ -611,10 +537,6 @@ local HANDLER_VERSIONS = {
 	add_collection = {
 		["0.0.0"] = add_collection_v000,
 		["0.0.1"] = add_collection_v001,
-	},
-	update_profile = {
-		["0.0.0"] = update_profile_v000,
-		["0.0.1"] = update_profile_v001,
 	}
 }
 
@@ -692,10 +614,7 @@ msg:
 Returns:
 None. This function sends messages to the sender or the registry but does not return anything.
 --]]
-Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-Profile'),
-	function(msg)
-		version_dispatcher('update_profile', msg)
-	end)
+Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-Profile'), update_profile )
 
 -- Data - { Id, Op, Role? }
 Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role'),
