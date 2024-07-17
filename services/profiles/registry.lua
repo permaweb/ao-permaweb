@@ -225,7 +225,6 @@ local function process_profile_action(msg)
             })
             return json.encode({ Code = step_status })
         end
-
     end
 
     ao.send({
@@ -233,7 +232,7 @@ local function process_profile_action(msg)
         Action = 'Success',
         Tags = {
             Status = 'Success',
-            Message = 'Record Inserted'
+            Message = is_update and 'Record Updated' or 'Record Inserted'
         },
         Data = json.encode(metadataValues)
     })
