@@ -33,16 +33,20 @@ test("should read all metadata", async () => {
 /*
     TODO: write a migration test: new lua, migration handler by owner only, supports same methods
  */
-test("should create profile A in registry v000", async () => {
+test("should create profile A in registry from old profile code", async () => {
     // recieve profile data via send from profile
     const inputData = { AuthorizedAddress: AUTHORIZED_ADDRESS_A, UserName: PROFILE_A_USERNAME, DateCreated: 125555, DateUpdated: 125555 }
-    const result = await Send({ From: PROFILE_A_ID, Action: "Create-Profile", Data: JSON.stringify(inputData) })
-    // logSendResult(result, 'Create-Profile-A');
+    const result = await Send({ From: PROFILE_A_ID, Action: "Update-Profile", Data: JSON.stringify(inputData) })
+    logSendResult(result, 'Create-Profile-A');
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
     const readData = { ProfileId: PROFILE_A_ID }
     const readResult = await Send({Action: "Read-Profile", Data: JSON.stringify(readData)})
     logSendResult(readResult, "Read-Profile")
     assert.equal(getTag(readResult?.Messages[0], "Status"), "Success")
+
+    const authResult = await Send({Action: "Read-Auth"})
+    logSendResult(authResult, "Read-Auth")
+    assert.equal(getTag(authResult?.Messages[0], "Status"), "Success")
 })
 
 test("should create profile in registry v001", async () => {
@@ -65,13 +69,11 @@ test("should return no records if profile does not exist", async () => {
 })
 
 test("should read auth table", async () => {
-    const result = await Send({Action: "Read-Auth"})
-    logSendResult(result, "Read-Auth")
-    assert.equal(getTag(result?.Messages[0], "Status"), "Success")
+
 })
 
-test("should update profile in registry v000", async () => {
-    const inputData = { DisplayName: "Who", DateUpdated: 126666 }
+test("should update profile in registry from old profile code", async () => {
+    const inputData = { DisplayName: "Who", DateUpdated: 126666, DateCreated: 125555}
     const result = await Send({ Target: PROFILE_A_ID, From: PROFILE_A_ID, AuthorizedAddress: AUTHORIZED_ADDRESS_A, Action: "Update-Profile", Data: JSON.stringify(inputData) })
     logSendResult(result, 'Update-Profile-1');
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")

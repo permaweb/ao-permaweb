@@ -24,7 +24,8 @@ if not Collections then Collections = {} end
 
 if not Roles then Roles = {} end
 
-REGISTRY = 'SNy4m-DrqxWl01YqGM4sxI8qCni-58re8uuJLvZPypY'
+--REGISTRY = 'SNy4m-DrqxWl01YqGM4sxI8qCni-58re8uuJLvZPypY'
+REGISTRY = 'BtOJ_ARxh5SUsmas4eqrRq96C5e3tFBIMdMv0zu_fY4'
 
 local function check_valid_address(address)
     if not address or type(address) ~= 'string' then

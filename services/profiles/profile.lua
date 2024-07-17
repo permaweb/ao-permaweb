@@ -44,7 +44,7 @@ local HandlerRoles = {
 -- Roles: { AddressOrProfile, Role } []
 if not Roles then Roles = {} end
 
-REGISTRY = 'dWdBohXUJ22rfb8sSChdFh6oXJzbAtGe4tC6__52Zk4'
+REGISTRY = 'BtOJ_ARxh5SUsmas4eqrRq96C5e3tFBIMdMv0zu_fY4'
 
 local function check_valid_address(address)
 	if not address or type(address) ~= 'string' then
@@ -221,8 +221,6 @@ local function update_profile(msg)
 			ao.assign({Processes = { REGISTRY }, Message = msg.Id})
 		else
 			ao.assign({Processes = { REGISTRY }, Message = ao.id})
-			-- if data is missing this will fix it?
-			ao.assign({Processes = { REGISTRY }, Message = msg.Id})
 			FirstRunCompleted = true
 		end
 
