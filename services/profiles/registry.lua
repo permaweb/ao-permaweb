@@ -69,32 +69,33 @@ local function process_profile_action(msg)
     local tags = msg.Tags or {}
     local action = msg.Action
     local reply_to = tags.ProfileProcess or msg.Target
-    local profile_process_data_or_tag = tags.ProfileProcess or decode_check and data.ProfileProcess or nil
+    -- see if new version of update
+    local profile_process_data_or_tag = tags.ProfileProcess or decode_check and data.ProfileProcess or nil -- nil
     -- handle legacy authorized_address tag
     local legacy_authorized_address = tags.AuthorizedAddress or decode_check and data.AuthorizedAddress or nil
     -- new api: profile_id is msg id on spawn or ProfileProcess tag/data in update TODO
-    local profile_id = legacy_authorized_address and msg.From or profile_process_data_or_tag or msg.Id
-    local user_id = legacy_authorized_address or msg.From -- (assigned)
+    local profile_id = legacy_authorized_address and msg.From or profile_process_data_or_tag or msg.Id -- m2 (from)
+    local user_id = legacy_authorized_address or msg.From -- (assigned) -- AuthorizedAddress
 
     -- new api: after spawn, updates assigned will need to include ProfileProcess tag or data
-    local is_actual_create = not profile_process_data_or_tag and action == "Create-Profile"
+    local is_update = profile_process_data_or_tag and true or false -- and action == "Create-Profile" or action == "Update-Profile"
     -- handle legacy "every update is create action" bug by checking roles first
-    if (action == "Create-Profile") then
-        local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? LIMIT 1')
-        check:bind_values(msg.From)
+    if not is_update then
+        local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? AND profile_id = ? LIMIT 1')
+        check:bind_values(user_id, profile_id)
         if check:step() ~= sqlite3.ROW then
-            is_actual_create = true
+            is_update = false
             local insert_auth = Db:prepare(
                     'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
             insert_auth:bind_values(profile_id, user_id, 'Admin')
             insert_auth:step()
             insert_auth:finalize()
         else
-            is_actual_create = false
+            is_update = true
         end
     end
 
-    if not is_actual_create and not is_authorized(profile_id, user_id, HandlerRoles['Update-Profile']) then
+    if is_update and not is_authorized(profile_id, user_id, HandlerRoles['Update-Profile']) then
         ao.send({
             Target = reply_to,
             Action = 'Authorization-Error',
@@ -117,7 +118,7 @@ local function process_profile_action(msg)
         description = tags.Description or decode_check and data.Description or nil,
         display_name = tags.DisplayName or decode_check and data.DisplayName or nil,
         date_updated = msg.Timestamp,
-        date_created = is_actual_create and msg.Timestamp or nil
+        date_created = not is_update and msg.Timestamp or nil
     }
     local function generateInsertQuery()
         for key, val in pairs(metadataValues) do
@@ -178,8 +179,8 @@ local function process_profile_action(msg)
     -- A legacy create will only
     -- new api: profile assigns the spawn tx to the registry, which contains the data
     -- legacy api: profile send()s new message to registry with the data and authorized_address (user_id) of admin
-    if not is_actual_create or (is_actual_create and (tags.UserName or decode_check and data.UserName)) then
-        local sql = is_actual_create and generateInsertQuery() or generateUpdateQuery()
+    if is_update or (not is_update and (tags.UserName or decode_check and data.UserName)) then
+        local sql = not is_update and generateInsertQuery() or generateUpdateQuery()
         local stmt = Db:prepare(sql)
 
         if not stmt then
@@ -199,7 +200,7 @@ local function process_profile_action(msg)
             return json.encode({ Code = 'DB_PREPARE_FAILED' })
         end
 
-        if is_actual_create then
+        if not is_update then
             -- bind values for INSERT statement
             stmt:bind_values(table.unpack(params))
         else
@@ -212,6 +213,7 @@ local function process_profile_action(msg)
         if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
             stmt:finalize()
             print("Error: " .. Db:errmsg())
+            print("SQL" .. sql)
             ao.send({
                 Target = reply_to,
                 Action = 'DB_STEP_CODE',
@@ -219,7 +221,7 @@ local function process_profile_action(msg)
                     Status = 'ERROR',
                     Message = 'sqlite step error'
                 },
-                Data = { DB_STEP_MSG = step_status }
+                Data = { DB_STEP_MSG = step_status, IS_UPDATE = tostring(is_update) }
             })
             return json.encode({ Code = step_status })
         end
