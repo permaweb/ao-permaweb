@@ -138,18 +138,21 @@ Handlers.add('Update-Assets', Handlers.utils.hasMatchingTag('Action', 'Update-As
 	end
 end)
 
--- Initialize a request to add the uploaded asset to a profile
+-- Initialize a request to add the collection to a profile
 Handlers.add('Add-Collection-To-Profile', Handlers.utils.hasMatchingTag('Action', 'Add-Collection-To-Profile'), function(msg)
-	if checkValidAddress(msg.Tags.ProfileProcess) then
-    	-- ao.assign({Processes = {msg.Tags.ProfileProcess}, Message = ao.id})
+	if msg.From ~= Owner and msg.From ~= Creator and msg.From ~= ao.id then
 		ao.send({
-			Target = msg.Tags.ProfileProcess,
-			Action = 'Add-Collection',
-			Data = json.encode({
-				Id = ao.id,
-				Name = Name
-			})
+			Target = msg.From,
+			Action = 'Authorization-Error',
+			Tags = {
+				Status = 'Error',
+				Message = 'Unauthorized to access this handler'
+			}
 		})
+		return
+	end
+	if checkValidAddress(Creator) then
+    	ao.assign({Processes = { Creator }, Message = ao.id})
     else
     	ao.send({
     		Target = msg.From,
