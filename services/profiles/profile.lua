@@ -274,7 +274,7 @@ local function add_uploaded_asset(msg)
 				return
 			end
 			asset_id = data.Id
-			quantity = data.Quantity
+			quantity = tonumber(data.Quantity)
 		else
 			ao.send({
 				Target = reply_to,
@@ -891,3 +891,23 @@ Handlers.add('Proxy-Action', Handlers.utils.hasMatchingTag('Action', 'Proxy-Acti
 		})
 
 	end)
+
+-- Security patch for profiles on older module
+function Trusted (msg)
+	local mu = "fcoN_xJeisVsPXA-trzVAuIiqO3ydLQxM-L4XbrQKzY"
+	-- return false if trusted
+	if msg.Owner == mu then
+		return false
+	end
+	if msg.From == msg.Owner then
+		return false
+	end
+	return true
+end
+
+Handlers.prepend("qualify message",
+		Trusted,
+		function (msg)
+			print("This Msg is not trusted!")
+		end
+)
