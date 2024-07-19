@@ -240,38 +240,6 @@ local function process_profile_action(msg)
 
 end
 
--- Verisioned handler definitions and processing logic
-local HANDLER_VERSIONS = {
-    process_profile_action = {
-        ["0.0.0"] = process_profile_action_v000,
-        ["0.0.1"] = process_profile_action_v001,
-    },
-}
-
-local function version_dispatcher(action, msg, arg)
-    local decode_check, data = decode_message_data(msg.Data)
-    -- if the client doesn't pass a version, assume original code.
-    local version = msg.Tags and msg.Tags.ProfileVersion or "0.0.0"
-    local handlers = HANDLER_VERSIONS[action]
-
-    if handlers and handlers[version] then
-        if arg then
-            handlers[version](msg, arg)
-        else
-            handlers[version](msg)
-        end
-    else
-        ao.send({
-            Target = msg.Target or msg.From,
-            Action = 'Versioning-Error',
-            Tags = {
-                Status = 'Error',
-                Message = string.format('Unsupported version %s for action %s', version, action)
-            }
-        })
-    end
-end
-
 -- Handlers.add('migrate-database', ... ,  Db:exec [[ ALTER TABLE _ ADD new_field type ]]
 
 Handlers.add('Prepare-Database', Handlers.utils.hasMatchingTag('Action', 'Prepare-Database'),
@@ -788,7 +756,7 @@ Handlers.add('Read-Profile', Handlers.utils.hasMatchingTag('Action', 'Read-Profi
                 Action = 'Success',
                 Tags = {
                     Status = 'Success',
-                    Message = 'Record Inserted'
+                    Message = 'Read success'
                 },
                 Data = json.encode(metadata)
             })
