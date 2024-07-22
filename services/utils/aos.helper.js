@@ -38,12 +38,12 @@ function getTimestamp() {
   return 1000000 + increment++;
 }
 function createMsg(env) {
-    const { moduleId } = env || {}
+    const { moduleId, defaultOwner, defaultFrom } = env || {}
   return {
     Id: '1234',
     Target: 'AOS',
-    Owner: 'MSGOWNER',
-    From: 'MSGFROM',
+    Owner: defaultOwner || 'FROMOWNER',
+    From: defaultFrom || 'FROMOWNER',
     Data: `{ "testdata": true }`,
     Tags: [],
     'Block-Height': '1',
