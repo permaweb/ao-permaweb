@@ -8,7 +8,7 @@ const REGISTRY = 'kFYMezhjcPCZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI'
 const PROFILE_A_ID = "PROFILE_A_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
 const AUTHORIZED_ADDRESS_A = "ADDRESS_A_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
 const AUTHORIZED_ADDRESS_B = "ADDRESS_B_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
-const {Send} = SendFactory({ processId: PROFILE_A_ID, moduleId: '5555'});
+const {Send} = SendFactory({ processId: PROFILE_A_ID, moduleId: '5555', defaultOwner: AUTHORIZED_ADDRESS_A, defaultFrom: AUTHORIZED_ADDRESS_A});
 function getTag(msg, tagName) {
     return msg?.Tags?.find(t => t.name === tagName)?.value ?? null;
 }

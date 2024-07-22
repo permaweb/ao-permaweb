@@ -478,14 +478,14 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
 			local decode_check, data = decode_message_data(msg.Data)
 
 			if decode_check and data then
-				if not data.Id or not data.Op or not data.Role then
+				if not data.Id or not data.Op then
 					ao.send({
 						Target = msg.From,
 						Action = 'Input-Error',
 						Tags = {
 							Status = 'Error',
 							Message =
-							'Invalid arguments, required { Id, Op, Role }'
+							'Invalid arguments, required { Id, Op }'
 						}
 					})
 					return
@@ -892,7 +892,7 @@ Handlers.add('Proxy-Action', Handlers.utils.hasMatchingTag('Action', 'Proxy-Acti
 
 	end)
 
--- Security patch for profiles on older module
+ --Security patch for profiles on older module
 function Trusted (msg)
 	local mu = "fcoN_xJeisVsPXA-trzVAuIiqO3ydLQxM-L4XbrQKzY"
 	-- return false if trusted
@@ -908,6 +908,16 @@ end
 Handlers.prepend("qualify message",
 		Trusted,
 		function (msg)
+			ao.send({
+				Target = reply_to,
+				Action = 'TRUSTED-Error',
+				Tags = {
+					Status = 'Error',
+					Message = 'Message not trusted',
+					From = msg.From,
+					Owner = msg.Owner
+				}
+			})
 			print("This Msg is not trusted!")
 		end
 )
