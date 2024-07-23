@@ -8,18 +8,25 @@ export function SendFactory(envConfig = {}, format = wasmFormat, wasmFile = wasm
     const aos = fs.readFileSync(wasmFile)
     let memory = null
     const Send = async function Send(DataItem) {
-        const msg = Object.keys(DataItem).reduce(function (di, k) {
+        const { Tags = {}, ...Rest } = DataItem;
+        const msg = Object.keys(Rest).reduce(function (di, k) {
         if (di[k]) {
-            di[k] = DataItem[k]
+            di[k] = Rest[k]
         } else {
-            di.Tags = di.Tags.concat([{ name: k, value: DataItem[k] }])
+            di.Tags = di.Tags.concat([{ name: k, value: Rest[k] }])
         }
         return di
         }, createMsg(envConfig))
+        Object.entries(Tags).forEach(t => {
+            const k = t[0];
+            const v = t[1];
+            msg.Tags.push({ name: k, value: v});
+        })
+
 
         const handle = await AoLoader(aos, { format })
         const env = createEnv(envConfig)
-
+        console.log('msg', msg)
         const result = await handle(memory, msg, env)
         if (result.Error) {
         return 'ERROR: ' + JSON.stringify(result.Error)

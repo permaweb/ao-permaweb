@@ -41,7 +41,7 @@ local HandlerRoles = {
 	['Update-Role'] = {'Owner', 'Admin'}
 }
 
--- Roles: { AddressOrProfile, Role } []
+-- Roles: { Id, Role } []
 if not Roles then Roles = {} end
 
 REGISTRY = 'BtOJ_ARxh5SUsmas4eqrRq96C5e3tFBIMdMv0zu_fY4'
@@ -104,7 +104,7 @@ local function authorizeRoles(msg)
 	local existingRole = nil
 
 	for _, role in pairs(Roles) do
-		if role.AddressOrProfile == msg.From then
+		if role.Id == msg.From then
 			existingRole = role.Role
 			break
 		end
@@ -117,7 +117,7 @@ local function authorizeRoles(msg)
 	if not existingRole then
 		if msg.From == Owner then
 			-- If Roles table is empty or owner doesn't exist, authorize the owner
-			table.insert(Roles, {Role = "Owner", AddressOrProfile = msg.From})
+			table.insert(Roles, {Role = "Owner", Id = msg.From})
 			existingRole = 'Owner'
 		else
 			return false, {
@@ -478,25 +478,28 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
 			local decode_check, data = decode_message_data(msg.Data)
 
 			if decode_check and data then
-				if not data.Id or not data.Op then
+				local Id = data.Id or msg.Tags.Id
+				local Role = data.Role or msg.Tags.Role
+				local Op = data.Op or msg.Tags.Op
+				if not Id or not Op then
 					ao.send({
 						Target = msg.From,
 						Action = 'Input-Error',
 						Tags = {
 							Status = 'Error',
 							Message =
-							'Invalid arguments, required { Id, Op }'
+							'Invalid arguments, required { Id, Op } in data or tags'
 						}
 					})
 					return
 				end
 
-				if not check_valid_address(data.Id) then
+				if not check_valid_address(Id) then
 					ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Id must be a valid address' }, Data = msg.Data })
 					return
 				end
 
-				if not check_valid_role(data.Role, data.Op) then
+				if not check_valid_role(Role, Op) then
 					ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Role must be one of "Admin", "Contributor", "Moderator", "Owner"' }, Data = msg.Data })
 					return
 				end
@@ -505,7 +508,7 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
 				local role_index = -1
 				local current_role = nil
 				for i, role in ipairs(Roles) do
-					if role.AddressOrProfile == data.Id then
+					if role.Id == Id then
 						role_index = i
 						current_role = role.Role
 						break
@@ -513,8 +516,8 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
 				end
 
 				if role_index == -1 then
-					if (data.Op == 'Add') then
-						table.insert(Roles, { AddressOrProfile = data.Id, Role = data.Role })
+					if (Op == 'Add') then
+						table.insert(Roles, { Id = Id, Role = Role })
 					else
 						ao.send({
 							Target = msg.From,
@@ -527,10 +530,10 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
 						return
 					end
 				else
-					if data.Op == 'Delete' and current_role ~= 'Owner' then
+					if Op == 'Delete' and current_role ~= 'Owner' then
 						table.remove(Roles, role_index)
-					elseif data.Op == "Update" then
-						Roles[role_index].Role = data.Role
+					elseif Op == "Update" then
+						Roles[role_index].Role = Role
 					end
 				end
 
