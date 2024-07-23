@@ -18,7 +18,7 @@ test('load source profile', async () => {
     const result = await Send({ Owner: AUTHORIZED_ADDRESS_A, From: AUTHORIZED_ADDRESS_A, Action: "Eval", Data: code })
 })
 
-test('should fail to update if from is not owner', async () => {
+test('should fail to update if from is not profile owner', async () => {
     const updateResult = await Send({ Id: "1111", From: AUTHORIZED_ADDRESS_B, Action: "Update-Profile", Data: JSON.stringify({ UserName: "Steve", DisplayName: "Steverino" }) })
     // logSendResult(updateResult, "Update-Profile--Fail")
     // const registryMessages = findMessageByTarget(updateResult.Messages, REGISTRY)

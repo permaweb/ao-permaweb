@@ -43,10 +43,9 @@ test('should fail to update if from is not owner', async () => {
 test("Steve's profile initialized using msg.Data", async () => {
     const updateResult = await Send({
         Id: "1112",
-        ProfileVersion: '0.0.1',
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
-        Action: "Update-Profile",
+        Tags: { Action: "Update-Profile" },
         Data: JSON.stringify({UserName: "Steve", DisplayName: "Steverino"})
     })
     logSendResult(updateResult, "Update-Profile--Pass")
@@ -66,9 +65,8 @@ test("Steve's profile updated using Tags", async () => {
         Id: "1113",
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
-        ProfileVersion: '0.0.10',
         Action: "Update-Profile",
-        DisplayName: "El Steverino"
+        Tags: { "DisplayName": "El Steverino" }
     })
     logSendResult(updateResult, "Update-Profile")
     const statusMessages = findMessageByTag(updateResult.Messages, "Status");
@@ -87,7 +85,6 @@ test('should add, update, remove role', async () => {
     const unauthFailAddResult = await Send({
         Id: "1114",
         From: BOB_WALLET,
-        ProfileVersion: '0.0.1',
         Action: "Update-Role",
         Data: JSON.stringify({Role: "Admin", Id: BOB_WALLET, Op: "Add"})
     })
@@ -109,11 +106,11 @@ test('should add, update, remove role', async () => {
         Action: "Update-Role",
         Data: JSON.stringify({Role: "Admin", Id: BOB_WALLET, Op: "Add"})
     })
-    // read role
-    const info = await Send({Action: "Info", ProfileVersion: '0.0.1'})
-    logSendResult(info, "Info1")
+
+    const roleAddInfo = await Send({Action: "Info", ProfileVersion: '0.0.1'})
+    logSendResult(roleAddInfo, "Info1")
     assert.equal(
-        JSON.parse(info.Messages[0].Data)["Roles"].find(r => r.Role === "Admin")['AddressOrProfile'],
+        JSON.parse(roleAddInfo.Messages[0].Data)["Roles"].find(r => r.Role === "Admin")['Id'],
         BOB_WALLET
     )
     const updateResult = await Send({
@@ -125,10 +122,10 @@ test('should add, update, remove role', async () => {
         Data: JSON.stringify({Role: "Contributor", Id: BOB_WALLET, Op: "Update"})
     })
     // logSendResult(updateResult, "Result2")
-    const updateinfo = await Send({Action: "Info", ProfileVersion: '0.0.1'})
-    logSendResult(updateinfo, "Info2")
+    const roleUpdateInfo = await Send({Action: "Info", ProfileVersion: '0.0.1'})
+    logSendResult(roleUpdateInfo, "Info2")
     assert.equal(
-        JSON.parse(updateinfo.Messages[0].Data)["Roles"].find(r => r.Role === "Contributor")['AddressOrProfile'],
+        JSON.parse(roleUpdateInfo.Messages[0].Data)["Roles"].find(r => r.Role === "Contributor")['Id'],
         BOB_WALLET
     )
     const roleRemoveResult = await Send({
@@ -140,7 +137,59 @@ test('should add, update, remove role', async () => {
         Data: JSON.stringify({Id: BOB_WALLET, Op: "Delete"})
     })
     logSendResult(roleRemoveResult, "Info3 Rm")
-    const removeInfo = await Send({Action: "Info", ProfileVersion: '0.0.1'})
-    assert.equal(JSON.parse(removeInfo.Messages[0].Data)["Roles"].length, 1)
+    const roleRemoveInfo = await Send({Action: "Info", ProfileVersion: '0.0.1'})
+    assert.equal(JSON.parse(roleRemoveInfo.Messages[0].Data)["Roles"].length, 1)
+
+    const roleAddResultTags = await Send({
+        Id: "1114",
+        Owner: STEVE_WALLET,
+        From: STEVE_WALLET,
+        Tags: { Role: "Admin",
+            Id: BOB_WALLET,
+            Op: "Add" },
+        Action: "Update-Role",
+    })
+
+    const roleAddTagsInfo = await Send({Action: "Info"})
+    // logSendResult(roleAddTagsInfo, "Info1 Add Role")
+    assert.equal(
+        JSON.parse(roleAddTagsInfo.Messages[0].Data)["Roles"].find(r => r.Role === "Admin")['Id'],
+        BOB_WALLET
+    )
+
+    // update using tags
+    const roleUpdateResultTags = await Send({
+        Id: "1114",
+        Owner: STEVE_WALLET,
+        From: STEVE_WALLET,
+        Action: "Update-Role",
+        Tags: {
+            Role: "Contributor",
+            Id: BOB_WALLET,
+            Op: "Update"
+        }
+    })
+    // logSendResult(updateResult, "Result2")
+    const roleUpdateTagsInfo = await Send({Action: "Info"})
+    // logSendResult(roleUpdateTagsInfo, "Info2 Update Role")
+    assert.equal(
+        JSON.parse(roleUpdateTagsInfo.Messages[0].Data)["Roles"].find(r => r.Role === "Contributor")['Id'],
+        BOB_WALLET
+    )
+
+    const roleDeleteResultTags = await Send({
+        Id: "1114",
+        Owner: STEVE_WALLET,
+        From: STEVE_WALLET,
+        Action: "Update-Role",
+        Tags: {
+            Id: BOB_WALLET,
+            Op: "Delete"
+        }
+
+    })
+    // logSendResult(roleRemoveResult, "Info3 Delete")
+    const roleRemoveTagsInfo = await Send({Action: "Info"})
+    assert.equal(JSON.parse(roleRemoveTagsInfo.Messages[0].Data)["Roles"].length, 1)
 })
 
