@@ -2,7 +2,7 @@ local json = require('json')
 local sqlite3 = require('lsqlite3')
 
 Db = Db or sqlite3.open_memory()
-ao.addAssignable("Assignable", { Action = '_' })
+ao.addAssignable("AssignableRule", { Action = '_' })
 local HandlerRoles = {
     ['Update-Profile'] = {'Owner', 'Admin'},
     ['Add-Uploaded-Asset'] = {'Owner', 'Admin', 'Contributor'},
@@ -566,7 +566,7 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
                 Action = 'Success',
                 Tags = {
                     Status = 'Success',
-                    Message = 'Auth Record Inserted'
+                    Message = 'Auth Record Success'
                 },
                 Data = json.encode({ ProfileId = profile_id, DelegateAddress = Id, Role = Role })
             })
@@ -664,7 +664,7 @@ Handlers.add('Read-Auth', Handlers.utils.hasMatchingTag('Action', 'Read-Auth'),
                 Action = 'Read-Metadata-Success',
                 Tags = {
                     Status = 'Success',
-                    Message = 'Metadata retrieved',
+                    Message = 'Auth Data retrieved',
                 },
                 Data = json.encode(metadata)
             })

@@ -1,5 +1,5 @@
 local json = require('json')
-ao.addAssignable("wildcard-assignment", { Action ='_'})
+ao.addAssignable("wildcard-assignment", { Action = '_' })
 -- Profile: {
 --   UserName
 --   DisplayName

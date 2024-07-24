@@ -79,7 +79,6 @@ test("Steve's profile updated using Tags", async () => {
     assert.equal(getTag(statusMessages[0], "Status"), "Success")
     assert.equal(updateResult.Assignments[0].Message, "1113")
     const info = await Send({Target: STEVE_PROFILE_ID, Action: "Info"})
-    // logSendResult(info, "Info")
     const dataMessage = findMessageByTagValue(info.Messages, "Action", "Read-Success");
     const dataString = dataMessage[0]?.Data;
     const data = JSON.parse(dataString);
