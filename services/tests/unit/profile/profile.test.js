@@ -8,6 +8,7 @@ const REGISTRY = 'dWdBohXUJ22rfb8sSChdFh6oXJzbAtGe4tC6__52Zk4';
 const STEVE_PROFILE_ID = "PROFILE_A_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
 const STEVE_WALLET = "ADDRESS_A_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
 const BOB_WALLET = "ADDRESS_B_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
+const RANDOM_COLLECTION = "oSFHRKZtszop4Vu1S7Wv1La41vgbcvt1QUxHU_zDN_U";
 const {Send} = SendFactory({processId: STEVE_PROFILE_ID, moduleId: '5555', defaultOwner: STEVE_WALLET, defaultFrom: STEVE_WALLET});
 
 function getTag(msg, tagName) {
@@ -114,7 +115,8 @@ test('should add, update, remove role', async () => {
         Data: JSON.stringify({Role: "Admin", Id: BOB_WALLET, Op: "Add"})
     })
 
-    const roleAddInfo = await Send({Action: "Info", ProfileVersion: '0.0.1'})
+    const roleAddInfo = await Send({        Owner: STEVE_WALLET,
+        From: STEVE_WALLET, Action: "Info"})
     logSendResult(roleAddInfo, "Info1")
     assert.equal(
         JSON.parse(roleAddInfo.Messages[0].Data)["Roles"].find(r => r.Role === "Admin")['Id'],
@@ -203,3 +205,15 @@ test('should add, update, remove role', async () => {
     assert.equal(JSON.parse(roleRemoveTagsInfo.Messages[0].Data)["Roles"].length, 1)
 })
 
+test('add collection', async () => {
+    const collectionResult = await Send({
+        Id: "1111",
+        Owner: STEVE_WALLET,
+        From: STEVE_WALLET,
+        Target: RANDOM_COLLECTION,
+        Action: "Add-Collection",
+        Data: JSON.stringify({ Id: RANDOM_COLLECTION, Name: "A Collection"})
+    })
+    logSendResult(updateResult, "Collection-Result")
+
+})
