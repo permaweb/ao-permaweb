@@ -1,7 +1,6 @@
 local json = require('json')
-ao.addAssignable("AHH", { Action = 'Info' }) --why?
-ao.addAssignable("AHHC", { Action = 'Add-Collection' })
-ao.addAssignable("AHHD", { Action = 'Add-Uploaded-Asset' })
+ao.addAssignable("add-collection", { Action = 'Add-Collection' })
+ao.addAssignable("add-uploaded-asset", { Action = 'Add-Uploaded-Asset' })
 -- Profile: {
 --   UserName
 --   DisplayName
@@ -46,13 +45,22 @@ local HandlerRoles = {
 -- Roles: { Id, Role } []
 if not Roles then Roles = {} end
 
-REGISTRY = 'BtOJ_ARxh5SUsmas4eqrRq96C5e3tFBIMdMv0zu_fY4'
+REGISTRY = 'iySPL7MpiZCvei0DIFzjNOudjbCnHHXf9rPgbXH-T90'
 
 local function check_valid_address(address)
 	if not address or type(address) ~= 'string' then
 		return false
 	end
 	return string.match(address, "^[%w%-_]+$") ~= nil and #address == 43
+end
+
+-- Guard against reply attack from random assignments that are authorized
+local function assigned_profile_target_validated(msg)
+	-- Creator tag is set to the profile process id
+	if msg.Tags.Creator == ao.id then
+		return true
+	end
+	return false
 end
 
 local function check_valid_role(role, op)
@@ -253,7 +261,7 @@ local function update_profile(msg)
 end
 
 -- Data - { Id, Quantity } or -- Tag - { Quantity = # } - Assignment from Spawn, msg.Id is the asset ID.
--- Backwards compatibility should be sunset in future as it does not perform validation.
+-- Backwards compatibility should be sunset in future as it does not perform validation and allows sends. Only allow via assign.
 local function add_uploaded_asset(msg)
 	local reply_to = msg.Target or msg.From
 	local backwards_compatibility_check = msg.Target == ao.id and true or false
@@ -291,6 +299,18 @@ local function add_uploaded_asset(msg)
 			return
 		end
 	else
+		if not assigned_profile_target_validated(msg) then
+			ao.send({
+				Target = reply_to,
+				Action = 'Validation-Error',
+				Tags = {
+					Status = 'Error',
+					Message =
+					'Only assignments with Creator tag from a asset spawn supported.'
+				}
+			})
+			return
+		end
 		local authorizeResult, message = authorizeRoles(msg)
 		if not authorizeResult then
 			ao.send(message)
@@ -348,7 +368,7 @@ local function add_uploaded_asset(msg)
 end
 
 -- Data - { Id } or msg.Id from assigned spawn message.
--- Backwards compatibility should be sunset in future as it does not perform validation.
+-- Backwards compatibility should be sunset in future as it does not perform validation and allows sends. Only allow via assign.
 local function add_collection(msg)
 	local reply_to = msg.Target or msg.From
 	local backwards_compatibility_check = msg.Target == ao.id and true or false
@@ -383,6 +403,18 @@ local function add_collection(msg)
 			return
 		end
 	else
+		if not assigned_profile_target_validated(msg) then
+			ao.send({
+				Target = reply_to,
+				Action = 'Validation-Error',
+				Tags = {
+					Status = 'Error',
+					Message =
+					'Only assignments with Creator tag from a collection spawn supported.'
+				}
+			})
+			return
+		end
 		local authorizeResult, message = authorizeRoles(msg)
 		if not authorizeResult then
 			ao.send(message)
