@@ -18,7 +18,8 @@ test("------------------------------BEGIN TEST------------------------------")
 test("load profileRegistry source", async () => {
     try {
         const code = fs.readFileSync('./profiles/registry.lua', 'utf-8')
-        const result = await Send({ Action: "Eval", Data: code })
+        const result = await Send({ Target: PROFILE_REGISTRY_ID, Action: "Eval", Data: code })
+        logSendResult(result, "Load Source")
     } catch (error) {
         console.log(error)
     }
@@ -26,8 +27,9 @@ test("load profileRegistry source", async () => {
 
 test("should prepare database", async () => {
     const preparedDb = await Send({
-        From: BOB_WALLET,
-        Owner: BOB_WALLET,
+        From: STEVE_WALLET,
+        Owner: STEVE_WALLET,
+        Target: PROFILE_REGISTRY_ID,
         Id: "1111",
         Tags: {
             Action: "Prepare-Database"
@@ -36,7 +38,7 @@ test("should prepare database", async () => {
     logSendResult(preparedDb, "Prepare-Database")
 })
 test("should read all metadata", async () => {
-    const result = await Send({ Tags: { Action: "Read-Metadata"}})
+    const result = await Send({ Target: PROFILE_REGISTRY_ID, Tags: { Action: "Read-Metadata"}})
     logSendResult(result, "Read-Metadata")
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })

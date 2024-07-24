@@ -19,19 +19,20 @@ test('load source profile', async () => {
     const result = await Send({
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
-        ProfileVersion: '0.0.1',
+        Target: STEVE_PROFILE_ID,
         Action: "Eval",
         Data: code
     })
+    logSendResult(result, "Load-Source")
 })
 test("------------------------------P V001 BEGIN TEST------------------------------")
 
 test('should fail to update if from is not owner', async () => {
     const updateResult = await Send({
         Id: "1111",
-        ProfileVersion: '0.0.1',
         From: BOB_WALLET,
         Owner: BOB_WALLET,
+        Target: STEVE_PROFILE_ID,
         Action: "Update-Profile",
         Data: JSON.stringify({UserName: "Steve", DisplayName: "Steverino"})
     })
@@ -45,6 +46,7 @@ test("Steve's profile initialized using msg.Data", async () => {
         Id: "1112",
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
+        Target: STEVE_PROFILE_ID,
         Tags: { Action: "Update-Profile" },
         Data: JSON.stringify({UserName: "Steve", DisplayName: "Steverino"})
     })
@@ -52,10 +54,13 @@ test("Steve's profile initialized using msg.Data", async () => {
     const statusMessages = findMessageByTag(updateResult.Messages, "Status");
     assert.equal(getTag(statusMessages[0], "Status"), "Success")
     assert.equal(updateResult.Assignments[0].Message, STEVE_PROFILE_ID)
-    const info = await Send({Action: "Info", ProfileVersion: '0.0.1'})
+    const info = await Send({Target: STEVE_PROFILE_ID, Action: "Info"})
     const dataMessage = findMessageByTagValue(info.Messages, "Action", "Read-Success");
     const dataString = dataMessage[0]?.Data;
-    const data = JSON.parse(dataString);
+    let data = {}
+    if (dataString) {
+        data = JSON.parse(dataString);
+    }
     assert.equal(data?.Profile?.UserName, "Steve");
     assert.equal(data?.Profile?.DisplayName, "Steverino");
 })
@@ -65,14 +70,15 @@ test("Steve's profile updated using Tags", async () => {
         Id: "1113",
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
+        Target: STEVE_PROFILE_ID,
         Action: "Update-Profile",
-        Tags: { "DisplayName": "El Steverino" }
+        Tags: { "DisplayName": "El Steverino" },
     })
     logSendResult(updateResult, "Update-Profile")
     const statusMessages = findMessageByTag(updateResult.Messages, "Status");
     assert.equal(getTag(statusMessages[0], "Status"), "Success")
     assert.equal(updateResult.Assignments[0].Message, "1113")
-    const info = await Send({Action: "Info", ProfileVersion: '0.0.1'})
+    const info = await Send({Target: STEVE_PROFILE_ID, Action: "Info"})
     // logSendResult(info, "Info")
     const dataMessage = findMessageByTagValue(info.Messages, "Action", "Read-Success");
     const dataString = dataMessage[0]?.Data;
@@ -85,6 +91,8 @@ test('should add, update, remove role', async () => {
     const unauthFailAddResult = await Send({
         Id: "1114",
         From: BOB_WALLET,
+        Owner: BOB_WALLET,
+        Target: STEVE_PROFILE_ID,
         Action: "Update-Role",
         Data: JSON.stringify({Role: "Admin", Id: BOB_WALLET, Op: "Add"})
     })
@@ -92,9 +100,9 @@ test('should add, update, remove role', async () => {
     assert.equal(getTag(statusMessages[0], "Status"), "Error")
     const unauthFailInfo = await Send({
         Action: "Info",
-        ProfileVersion: '0.0.1',
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
+        Target: STEVE_PROFILE_ID
     })
     assert.equal(JSON.parse(unauthFailInfo.Messages[0].Data)["Roles"].length, 1)
 
@@ -102,7 +110,7 @@ test('should add, update, remove role', async () => {
         Id: "1114",
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
-        ProfileVersion: '0.0.1',
+        Target: STEVE_PROFILE_ID,
         Action: "Update-Role",
         Data: JSON.stringify({Role: "Admin", Id: BOB_WALLET, Op: "Add"})
     })
@@ -117,7 +125,7 @@ test('should add, update, remove role', async () => {
         Id: "1114",
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
-        ProfileVersion: '0.0.1',
+        Target: STEVE_PROFILE_ID,
         Action: "Update-Role",
         Data: JSON.stringify({Role: "Contributor", Id: BOB_WALLET, Op: "Update"})
     })
@@ -132,7 +140,7 @@ test('should add, update, remove role', async () => {
         Id: "1114",
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
-        ProfileVersion: '0.0.1',
+        Target: STEVE_PROFILE_ID,
         Action: "Update-Role",
         Data: JSON.stringify({Id: BOB_WALLET, Op: "Delete"})
     })
@@ -144,6 +152,7 @@ test('should add, update, remove role', async () => {
         Id: "1114",
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
+        Target: STEVE_PROFILE_ID,
         Tags: { Role: "Admin",
             Id: BOB_WALLET,
             Op: "Add" },
@@ -162,6 +171,7 @@ test('should add, update, remove role', async () => {
         Id: "1114",
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
+        Target: STEVE_PROFILE_ID,
         Action: "Update-Role",
         Tags: {
             Role: "Contributor",
@@ -181,6 +191,7 @@ test('should add, update, remove role', async () => {
         Id: "1114",
         Owner: STEVE_WALLET,
         From: STEVE_WALLET,
+        Target: STEVE_PROFILE_ID,
         Action: "Update-Role",
         Tags: {
             Id: BOB_WALLET,
