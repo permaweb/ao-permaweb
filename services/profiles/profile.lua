@@ -101,7 +101,7 @@ local function authorizeRoles(msg)
 		}
 	end
 	-- change to 'admin', 'contributor', 'moderator', 'owner'
-	local existingRole = nil
+	local existingRole
 
 	for _, role in pairs(Roles) do
 		if role.Id == msg.From then
@@ -506,7 +506,7 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
 
 				-- Add, update, or remove role
 				local role_index = -1
-				local current_role = nil
+				local current_role
 				for i, role in ipairs(Roles) do
 					if role.Id == Id then
 						role_index = i
