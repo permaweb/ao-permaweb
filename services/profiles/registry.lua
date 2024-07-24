@@ -71,7 +71,8 @@ local function process_profile_action(msg)
     -- handle legacy authorized_address tag
     local legacy_authorized_address = tags.AuthorizedAddress or decode_check and data.AuthorizedAddress or nil
     -- new api: profile_id is msg id on spawn or msg.Target in update
-    local profile_id = legacy_authorized_address and msg.From or msg.Target or msg.Id -- m2 (from)
+    local target = msg.Target and msg.Target ~= "" and msg.Target or nil
+    local profile_id = legacy_authorized_address and msg.From or target or msg.Id -- create = msg.Id spawn
     local user_id = legacy_authorized_address or msg.From -- (assigned) -- AuthorizedAddress
 
     -- new api: after spawn, updates assigned will need to include ProfileProcess tag or data
