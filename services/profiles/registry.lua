@@ -2,7 +2,7 @@ local json = require('json')
 local sqlite3 = require('lsqlite3')
 
 Db = Db or sqlite3.open_memory()
-
+ao.addAssignable("Assignable", { Action = '_' })
 local HandlerRoles = {
     ['Update-Profile'] = {'Owner', 'Admin'},
     ['Add-Uploaded-Asset'] = {'Owner', 'Admin', 'Contributor'},
@@ -52,6 +52,7 @@ end
 
 local function process_profile_action(msg)
 
+    local reply_to = msg.From
     local decode_check, data = decode_message_data(msg.Data)
     if not decode_check then
         ao.send({
@@ -65,20 +66,19 @@ local function process_profile_action(msg)
         })
         return
     end
-
     local tags = msg.Tags or {}
-    local action = msg.Action
-    local reply_to = tags.ProfileProcess or msg.Target
     -- see if new version of update
-    local profile_process_data_or_tag = tags.ProfileProcess or decode_check and data.ProfileProcess or nil -- nil
     -- handle legacy authorized_address tag
     local legacy_authorized_address = tags.AuthorizedAddress or decode_check and data.AuthorizedAddress or nil
-    -- new api: profile_id is msg id on spawn or ProfileProcess tag/data in update TODO
-    local profile_id = legacy_authorized_address and msg.From or profile_process_data_or_tag or msg.Id -- m2 (from)
+    -- new api: profile_id is msg id on spawn or msg.Target in update
+    local profile_id = legacy_authorized_address and msg.From or msg.Target or msg.Id -- m2 (from)
     local user_id = legacy_authorized_address or msg.From -- (assigned) -- AuthorizedAddress
 
     -- new api: after spawn, updates assigned will need to include ProfileProcess tag or data
-    local is_update = profile_process_data_or_tag and true or false -- and action == "Create-Profile" or action == "Update-Profile"
+
+    -- update and new api if msg.Tags.Type == "Message" and msg.Target ~= ao.id (Self)
+
+    local is_update = msg.Tags.Type == "Message" and msg.Target ~= ao.id or false -- and action == "Create-Profile" or action == "Update-Profile"
     -- handle legacy "every update is create action" bug by checking roles first
     if not is_update then
         local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? AND profile_id = ? LIMIT 1')
@@ -112,11 +112,11 @@ local function process_profile_action(msg)
     local params = {}
     local metadataValues = {
         id = profile_id,
-        username = tags.UserName or decode_check and data.UserName or nil,
-        profile_image = tags.ProfileImage or decode_check and data.ProfileImage or nil,
-        cover_image = tags.CoverImage or decode_check and data.CoverImage or nil,
-        description = tags.Description or decode_check and data.Description or nil,
-        display_name = tags.DisplayName or decode_check and data.DisplayName or nil,
+        username = msg.Tags.UserName or decode_check and data.UserName or nil,
+        profile_image = msg.Tags.ProfileImage or decode_check and data.ProfileImage or nil,
+        cover_image = msg.Tags.CoverImage or decode_check and data.CoverImage or nil,
+        description = msg.Tags.Description or decode_check and data.Description or nil,
+        display_name = msg.Tags.DisplayName or decode_check and data.DisplayName or nil,
         date_updated = msg.Timestamp,
         date_created = not is_update and msg.Timestamp or nil
     }
@@ -166,7 +166,7 @@ local function process_profile_action(msg)
         end
         -- now build querystring
         local sql = "UPDATE ao_profile_metadata SET "
-        for i, v in ipairs(columns) do
+        for i, _ in ipairs(columns) do
             sql = sql .. columns[i] .. " = " .. placeholders[i]
             if i ~= #columns then
                 sql = sql .. ","
@@ -179,7 +179,7 @@ local function process_profile_action(msg)
     -- A legacy create will only
     -- new api: profile assigns the spawn tx to the registry, which contains the data
     -- legacy api: profile send()s new message to registry with the data and authorized_address (user_id) of admin
-    if is_update or (not is_update and (tags.UserName or decode_check and data.UserName)) then
+    if is_update or (not is_update and (msg.Tags.UserName or decode_check and data.UserName)) then
         local sql = not is_update and generateInsertQuery() or generateUpdateQuery()
         local stmt = Db:prepare(sql)
 
@@ -315,7 +315,7 @@ Handlers.add('Get-Metadata-By-ProfileIds', Handlers.utils.hasMatchingTag('Action
                 if #data.ProfileIds > 0 then
                     local placeholders = {}
 
-                    for _, id in ipairs(data.ProfileIds) do
+                    for _, _ in ipairs(data.ProfileIds) do
                         table.insert(placeholders, "?")
                     end
 
@@ -481,11 +481,12 @@ Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-P
 Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role'),
         function(msg)
             local decode_check, data = decode_message_data(msg.Data)
-
+            local profile_id = msg.Target
+            local user_id = msg.From
             if decode_check and data then
                 if not data.Id or not data.Op then
                     ao.send({
-                        Target = msg.From,
+                        Target = profile_id,
                         Action = 'Input-Error',
                         Tags = {
                             Status = 'Error',
@@ -496,13 +497,9 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
                 end
             end
 
-            local tags = msg.Tags or {}
-            local reply_to = tags.ProfileProcess or msg.Target
-            local profile_process_data_or_tag = tags.ProfileProcess or decode_check and data.ProfileProcess or nil
-            -- assigned message from user, to profile
-            if not is_authorized(profile_process_data_or_tag, msg.From, HandlerRoles['Update-Role']) then
+            if not is_authorized(profile_id, user_id, HandlerRoles['Update-Role']) then
                 ao.send({
-                    Target = reply_to,
+                    Target = profile_id,
                     Action = 'Authorization-Error',
                     Tags = {
                         Status = 'Error',
@@ -512,46 +509,48 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
                 return
             end
 
+
+
+            local Id = data.Id or msg.Tags.Id
+            local Role = data.Role or msg.Tags.Role
+            local Op = data.Op or msg.Tags.Op
+
+            if not Id or not Op then
+                ao.send({
+                    Target = profile_id,
+                    Action = 'Input-Error',
+                    Tags = {
+                        Status = 'Error',
+                        Message =
+                        'Invalid arguments, required { Id, Op } in data or tags'
+                    }
+                })
+                return
+            end
             -- handle add, update, or remove Ops
             local stmt
-            local typeofthings
             if data.Op == 'Add' then
                 stmt = Db:prepare(
                         'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
-                stmt:bind_values(profile_process_data_or_tag, data.Id, data.Role)
+                stmt:bind_values(profile_id, Id, Role)
 
             elseif data.Op == 'Update' then
                 stmt = Db:prepare(
                         'UPDATE ao_profile_authorization SET role = ? WHERE profile_id = ? AND delegate_address = ?')
-                typeofthings = type(stmt)
-                stmt:bind_values(data.Role, profile_process_data_or_tag, data.Id)
+                stmt:bind_values(Role, profile_id, Id)
 
             elseif data.Op == 'Delete' then
                 stmt = Db:prepare(
                         'DELETE FROM ao_profile_authorization WHERE profile_id = ? AND delegate_address = ?')
-                typeofthings = type(stmt)
-                if not stmt then
-                    ao.send({
-                        Target = reply_to,
-                        Action = 'TYPEOFTHINGS',
-                        Tags = {
-                            Status = 'TYPE',
-                            Message = typeofthings
-                        }
-                    })
-                    return
-                end
-                    stmt:bind_values(profile_process_data_or_tag, data.Id)
-                end
-
-
+                stmt:bind_values(profile_id, Id)
+            end
 
             local step_status = stmt:step()
             stmt:finalize()
             if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
                 print("Error: " .. Db:errmsg())
                 ao.send({
-                    Target = reply_to,
+                    Target = profile_id,
                     Action = 'DB_STEP_CODE',
                     Tags = {
                         Status = 'ERROR',
@@ -563,13 +562,13 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
             end
 
             ao.send({
-                Target = reply_to,
+                Target = profile_id,
                 Action = 'Success',
                 Tags = {
                     Status = 'Success',
                     Message = 'Auth Record Inserted'
                 },
-                Data = json.encode({ ProfileId = profile_process_data_or_tag, DelegateAddress = data.Id, Role = data.Role })
+                Data = json.encode({ ProfileId = profile_id, DelegateAddress = Id, Role = Role })
             })
         end
 )

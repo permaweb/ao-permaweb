@@ -8,7 +8,7 @@
     "test:profile000": "FORMAT=wasm32-unknown-emscripten2 WASM=./AOS-SQLITE.wasm node --test tests/unit/profile/profile_v000.test.js",
     "test:profile001": "FORMAT=wasm32-unknown-emscripten2 WASM=./AOS-SQLITE.wasm node --test tests/unit/profile/profile.test.js",
     "test:profile": "FORMAT=wasm32-unknown-emscripten2 WASM=./AOS-SQLITE.wasm node --test tests/unit/profile/*.test.js",
-    "test:profileRegistry": "FORMAT=wasm32-unknown-emscripten2 WASM=./AOS-SQLITE.wasm node --test tests/unit/profileRegistry/*.test.js",
+    "test:profileRegistry": "FORMAT=wasm64-unknown-emscripten-draft_2024_02_15 WASM=./AOS-SQLITE64-2_2.wasm node --test tests/unit/profileRegistry/*.test.js",
     "test:profileIntegration": "FORMAT=wasm32-unknown-emscripten2 WASM=./AOS-SQLITE.wasm node --test tests/integration/*.test.js",
     "test:sqlite": "FORMAT=wasm32-unknown-emscripten2 WASM=./AOS-SQLITE.wasm node --test test/**/*.test.js"
   },
