@@ -26,7 +26,6 @@ export function SendFactory(envConfig = {}, format = wasmFormat, wasmFile = wasm
 
         const handle = await AoLoader(aos, { format })
         const env = createEnv(envConfig)
-        console.log('msg', msg)
         const result = await handle(memory, msg, env)
         if (result.Error) {
         return 'ERROR: ' + JSON.stringify(result.Error)
