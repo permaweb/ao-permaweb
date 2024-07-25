@@ -88,7 +88,7 @@ local function process_profile_action(msg)
             is_update = false
             local insert_auth = Db:prepare(
                     'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
-            insert_auth:bind_values(profile_id, user_id, 'Admin')
+            insert_auth:bind_values(profile_id, user_id, 'Owner')
             insert_auth:step()
             insert_auth:finalize()
         else
