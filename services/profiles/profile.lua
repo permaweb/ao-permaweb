@@ -1,4 +1,5 @@
 local json = require('json')
+ao.addAssignable("info", { Action = 'Info' })
 ao.addAssignable("add-collection", { Action = 'Add-Collection' })
 ao.addAssignable("add-uploaded-asset", { Action = 'Add-Uploaded-Asset' })
 -- Profile: {
