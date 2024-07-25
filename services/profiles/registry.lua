@@ -2,6 +2,20 @@ local json = require('json')
 local sqlite3 = require('lsqlite3')
 
 Db = Db or sqlite3.open_memory()
+ao.addAssignable("AssignableRule", { Action = '_' })
+local HandlerRoles = {
+    ['Update-Profile'] = {'Owner', 'Admin'},
+    ['Add-Uploaded-Asset'] = {'Owner', 'Admin', 'Contributor'},
+    ['Add-Collection'] = {'Owner', 'Admin', 'Contributor'},
+    ['Update-Collection-Sort'] = {'Owner', 'Admin'},
+    ['Transfer'] = {'Owner', 'Admin'},
+    ['Debit-Notice'] = {'Owner', 'Admin'},
+    ['Credit-Notice'] = {'Owner', 'Admin'},
+    ['Action-Response'] = {'Owner', 'Admin'},
+    ['Run-Action'] = {'Owner', 'Admin'},
+    ['Proxy-Action'] = {'Owner', 'Admin'},
+    ['Update-Role'] = {'Owner', 'Admin'}
+}
 
 local function decode_message_data(data)
     local status, decoded_data = pcall(json.decode, data)
@@ -11,7 +25,7 @@ local function decode_message_data(data)
     return true, decoded_data
 end
 
-local function is_authorized(profile_id, address)
+local function is_authorized(profile_id, user_id, roles)
     if not profile_id then
         return false
     end
@@ -22,22 +36,23 @@ local function is_authorized(profile_id, address)
         LIMIT 1
     ]]
     local stmt = Db:prepare(query)
-    stmt:bind_values(profile_id, address)
+    stmt:bind_values(profile_id, user_id)
     local authorized = false
     for row in stmt:nrows() do
-        authorized = true
-        break
+        for _, role in ipairs(roles) do
+            if row.role == role then
+                authorized = true
+                break
+            end
+        end
     end
     stmt:finalize()
     return authorized
 end
 
-local function process_profile_action_v000(msg, _)
-    -- This was bugged in the previous version, was using Create-Profile always which sent nil.
-    -- This handler
-    local profile_id_to_check_for_update = msg.From
-    local reply_to = msg.Target or msg.From
+local function process_profile_action(msg)
 
+    local reply_to = msg.From
     local decode_check, data = decode_message_data(msg.Data)
     if not decode_check then
         ao.send({
@@ -51,149 +66,63 @@ local function process_profile_action_v000(msg, _)
         })
         return
     end
-
     local tags = msg.Tags or {}
+    -- see if new version of update
+    -- handle legacy authorized_address tag
+    local legacy_authorized_address = tags.AuthorizedAddress or decode_check and data.AuthorizedAddress or nil
+    -- new api: profile_id is msg id on spawn or msg.Target in update
+    local target = msg.Target and msg.Target ~= "" and msg.Target or nil
+    local profile_id = legacy_authorized_address and msg.From or target or msg.Id -- create = msg.Id spawn
+    local user_id = legacy_authorized_address or msg.From -- (assigned) -- AuthorizedAddress
 
-    local upsert_metadata_stmt = [[
-        INSERT INTO ao_profile_metadata (id, username, profile_image, cover_image, description, display_name, date_updated, date_created)
-            VALUES (:id, :username, :profile_image, :cover_image, :description, :display_name, :date_updated, :date_created)
-            ON CONFLICT(id) DO UPDATE SET
-                username = COALESCE(excluded.username, ao_profile_metadata.username),
-                profile_image = CASE
-                    WHEN excluded.profile_image IS NULL THEN NULL
-                    WHEN excluded.profile_image = 'NULL' THEN NULL
-                    ELSE COALESCE(excluded.profile_image, ao_profile_metadata.profile_image, NULL)
-                END,
-                cover_image = CASE
-                    WHEN excluded.cover_image IS NULL THEN NULL
-                    WHEN excluded.cover_image = 'NULL' THEN NULL
-                    ELSE COALESCE(excluded.cover_image, ao_profile_metadata.cover_image, NULL)
-                END,
-                description = CASE
-                    WHEN excluded.description IS NULL THEN NULL
-                    WHEN excluded.description = 'NULL' THEN NULL
-                    ELSE COALESCE(excluded.description, ao_profile_metadata.description, NULL)
-                END,
-                display_name = CASE
-                    WHEN excluded.display_name IS NULL THEN NULL
-                    WHEN excluded.display_name = 'NULL' THEN NULL
-                    ELSE COALESCE(excluded.display_name, ao_profile_metadata.display_name, NULL)
-                END,
-                date_updated = CASE
-                    WHEN excluded.date_updated IS NULL THEN excluded.date_created
-                    WHEN excluded.date_updated = "NULL" THEN excluded.date_created
-                    ELSE excluded.date_updated
-                END,
-                date_created = CASE
-                    WHEN excluded.date_created IS NULL THEN ao_profile_metadata.date_created
-                    WHEN excluded.date_created = "NULL" THEN ao_profile_metadata.date_created
-                    ELSE excluded.date_created
-                END
-    ]]
-    local upsert_meta = Db:prepare(upsert_metadata_stmt)
+    -- new api: after spawn, updates assigned will need to include ProfileProcess tag or data
 
-    local names_bound = {
-        id = profile_id_to_check_for_update or msg.From,
-        username = tags.UserName or data.UserName,
-        profile_image = tags.ProfileImage or data.ProfileImage,
-        cover_image = tags.CoverImage or data.CoverImage,
-        description = tags.Description or data.Description,
-        display_name = tags.DisplayName or data.DisplayName,
-        date_updated = tags.DateUpdated or tags.DateCreated or data.DateUpdated or data.DateCreated,
-        date_created = tags.DateCreated or data.DateCreated or "NULL"
-    }
+    -- update and new api if msg.Tags.Type == "Message" and msg.Target ~= ao.id (Self)
 
-    if upsert_meta then
-        upsert_meta:bind_names(names_bound)
-    else
-        ao.send({
-            Target = reply_to,
-            Action = 'DB_CODE',
-            Tags = {
-                Status = 'DB_PREPARE_FAILED',
-                Message = "DB PREPARED QUERY FAILED"
-            },
-            Data = { Code = "Failed to prepare insert statement" }
-        })
-        print("Failed to prepare insert statement")
-        return json.encode({ Code = 'DB_PREPARE_FAILED' })
-    end
-
-    local step_status = upsert_meta:step()
-    if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
-        ao.send({
-            Target = reply_to,
-            Action = 'DB_STEP_CODE',
-            Tags = {
-                Status = 'ERROR',
-                Message = step_status
-            },
-            Data = { DB_STEP_MSG = step_status, DB_ERROR = Db:errmsg(), Input = json.encode(data) }
-        })
-        return json.encode({ Code = step_status })
-    end
-
-    ao.send({
-        Target = reply_to,
-        Action = 'Success',
-        Tags = {
-            Status = 'Success',
-            Message = 'Record Inserted'
-        },
-        Data = json.encode(names_bound)
-    })
-
-    upsert_meta:finalize()
-    if (not profile_id_to_check_for_update) then
-        local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? LIMIT 1')
-        check:bind_values(msg.From)
+    local is_update = msg.Tags.Type == "Message" and msg.Target ~= ao.id or false -- and action == "Create-Profile" or action == "Update-Profile"
+    -- handle legacy "every update is create action" bug by checking roles first
+    if not is_update then
+        local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? AND profile_id = ? LIMIT 1')
+        check:bind_values(user_id, profile_id)
         if check:step() ~= sqlite3.ROW then
+            is_update = false
             local insert_auth = Db:prepare(
                     'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
-            insert_auth:bind_values(msg.From, data.AuthorizedAddress,  'Admin')
+            insert_auth:bind_values(profile_id, user_id, 'Owner')
             insert_auth:step()
+            insert_auth:finalize()
+        else
+            is_update = true
         end
     end
-end
 
-local function process_profile_action_v001(msg, create_profile)
-    local reply_to = msg.Tags.ProfileProcess or msg.Target
-    -- currently using a tag for profileprocess because the target of the original message is not available.
-    local profile_id = create_profile and msg.Id or msg.Tags.ProfileProcess
-
-    if not create_profile and not is_authorized(profile_id, msg.From) then
-         ao.send({
-             Target = reply_to,
-             Action = 'Authorization-Error',
-             Tags = {
-                 Status = 'Error',
-                 Message = 'Unauthorized to access this handler'
-             }
-         })
-         return
-     end
-
-    local decode_check, data = decode_message_data(msg.Data)
-
-    local tags = msg.Tags or {}
-
-    local queryValues = {
-        id = profile_id,
-        username = tags.UserName or decode_check and data.UserName or nil,
-        profile_image = tags.ProfileImage or decode_check and data.ProfileImage or nil,
-        cover_image = tags.CoverImage or decode_check and data.CoverImage or nil,
-        description = tags.Description or decode_check and data.Description or nil,
-        display_name = tags.DisplayName or decode_check and data.DisplayName or nil,
-        date_updated = msg.Timestamp,
-        date_created = create_profile and msg.Timestamp or nil
-    }
+    if is_update and not is_authorized(profile_id, user_id, HandlerRoles['Update-Profile']) then
+        ao.send({
+            Target = reply_to,
+            Action = 'Authorization-Error',
+            Tags = {
+                Status = 'Error',
+                Message = 'Unauthorized to access this handler'
+            }
+        })
+        return
+    end
 
     local columns = {}
     local placeholders = {}
     local params = {}
-
+    local metadataValues = {
+        id = profile_id,
+        username = msg.Tags.UserName or decode_check and data.UserName or nil,
+        profile_image = msg.Tags.ProfileImage or decode_check and data.ProfileImage or nil,
+        cover_image = msg.Tags.CoverImage or decode_check and data.CoverImage or nil,
+        description = msg.Tags.Description or decode_check and data.Description or nil,
+        display_name = msg.Tags.DisplayName or decode_check and data.DisplayName or nil,
+        date_updated = msg.Timestamp,
+        date_created = not is_update and msg.Timestamp or nil
+    }
     local function generateInsertQuery()
-        for key, val in pairs(queryValues) do
+        for key, val in pairs(metadataValues) do
             if val ~= nil then
                 -- Include the field if provided
                 table.insert(columns, key)
@@ -222,7 +151,7 @@ local function process_profile_action_v001(msg, create_profile)
 
     local function generateUpdateQuery()
         -- first create setclauses for everything but id
-        for key, val in pairs(queryValues) do
+        for key, val in pairs(metadataValues) do
             if val ~= nil and val ~= 'id' then
                 -- Include the field if provided
                 table.insert(columns, key)
@@ -238,7 +167,7 @@ local function process_profile_action_v001(msg, create_profile)
         end
         -- now build querystring
         local sql = "UPDATE ao_profile_metadata SET "
-        for i, v in ipairs(columns) do
+        for i, _ in ipairs(columns) do
             sql = sql .. columns[i] .. " = " .. placeholders[i]
             if i ~= #columns then
                 sql = sql .. ","
@@ -247,48 +176,56 @@ local function process_profile_action_v001(msg, create_profile)
         sql = sql .. " WHERE id = ?"
         return sql
     end
-    local sql = create_profile and generateInsertQuery() or generateUpdateQuery()
-    local stmt = Db:prepare(sql)
+    -- A spawn create will have data including UserName
+    -- A legacy create will only
+    -- new api: profile assigns the spawn tx to the registry, which contains the data
+    -- legacy api: profile send()s new message to registry with the data and authorized_address (user_id) of admin
+    if is_update or (not is_update and (msg.Tags.UserName or decode_check and data.UserName)) then
+        local sql = not is_update and generateInsertQuery() or generateUpdateQuery()
+        local stmt = Db:prepare(sql)
 
-    if not stmt then
-        ao.send({
-            Target = reply_to,
-            Action = 'DB_CODE',
-            Tags = {
-                Status = 'DB_PREPARE_FAILED',
-                Message = "DB PREPARED QUERY FAILED"
-            },
-            Data = { Code = "Failed to prepare insert statement",
-                     SQL = sql,
-                     ERROR = Db:errmsg()
-            }
-        })
-        print("Failed to prepare insert statement")
-        return json.encode({ Code = 'DB_PREPARE_FAILED' })
-    end
+        if not stmt then
+            ao.send({
+                Target = reply_to,
+                Action = 'DB_CODE',
+                Tags = {
+                    Status = 'DB_PREPARE_FAILED',
+                    Message = "DB PREPARED QUERY FAILED"
+                },
+                Data = { Code = "Failed to prepare insert statement",
+                         SQL = sql,
+                         ERROR = Db:errmsg()
+                }
+            })
+            print("Failed to prepare insert statement")
+            return json.encode({ Code = 'DB_PREPARE_FAILED' })
+        end
 
-    if create_profile then
-        -- bind values for INSERT statement
-        stmt:bind_values(table.unpack(params))
-    else
-        -- bind values for UPDATE statement (id is last)
-        table.insert(params, profile_id)
-        stmt:bind_values(table.unpack(params))
-    end
+        if not is_update then
+            -- bind values for INSERT statement
+            stmt:bind_values(table.unpack(params))
+        else
+            -- bind values for UPDATE statement (id is last)
+            table.insert(params, profile_id)
+            stmt:bind_values(table.unpack(params))
+        end
 
-    local step_status = stmt:step()
-    if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
-        print("Error: " .. Db:errmsg())
-        ao.send({
-            Target = reply_to,
-            Action = 'DB_STEP_CODE',
-            Tags = {
-                Status = 'ERROR',
-                Message = 'sqlite step error'
-            },
-            Data = { DB_STEP_MSG = step_status }
-        })
-        return json.encode({ Code = step_status })
+        local step_status = stmt:step()
+        if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
+            stmt:finalize()
+            print("Error: " .. Db:errmsg())
+            print("SQL" .. sql)
+            ao.send({
+                Target = reply_to,
+                Action = 'DB_STEP_CODE',
+                Tags = {
+                    Status = 'ERROR',
+                    Message = 'sqlite step error'
+                },
+                Data = { DB_STEP_MSG = step_status, IS_UPDATE = tostring(is_update) }
+            })
+            return json.encode({ Code = step_status })
+        end
     end
 
     ao.send({
@@ -296,54 +233,12 @@ local function process_profile_action_v001(msg, create_profile)
         Action = 'Success',
         Tags = {
             Status = 'Success',
-            Message = 'Record Inserted'
+            Message = is_update and 'Record Updated' or 'Record Inserted'
         },
-        Data = json.encode(queryValues)
+        Data = json.encode(metadataValues)
     })
 
-    stmt:finalize()
-    if (create_profile) then
-        local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? LIMIT 1')
-        check:bind_values(msg.From)
-        if check:step() ~= sqlite3.ROW then
-            local insert_auth = Db:prepare(
-                    'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
-            insert_auth:bind_values(msg.Id, msg.From, 'Admin')
-            insert_auth:step()
-        end
-    end
-end
 
--- Verisioned handler definitions and processing logic
-local HANDLER_VERSIONS = {
-    process_profile_action = {
-        ["0.0.0"] = process_profile_action_v000,
-        ["0.0.1"] = process_profile_action_v001,
-    },
-}
-
-local function version_dispatcher(action, msg, arg)
-    local decode_check, data = decode_message_data(msg.Data)
-    -- if the client doesn't pass a version, assume original code.
-    local version = msg.Tags and msg.Tags.ProfileVersion or "0.0.0"
-    local handlers = HANDLER_VERSIONS[action]
-
-    if handlers and handlers[version] then
-        if arg then
-            handlers[version](msg, arg)
-        else
-            handlers[version](msg)
-        end
-    else
-        ao.send({
-            Target = msg.Target or msg.From,
-            Action = 'Versioning-Error',
-            Tags = {
-                Status = 'Error',
-                Message = string.format('Unsupported version %s for action %s', version, action)
-            }
-        })
-    end
 end
 
 -- Handlers.add('migrate-database', ... ,  Db:exec [[ ALTER TABLE _ ADD new_field type ]]
@@ -421,7 +316,7 @@ Handlers.add('Get-Metadata-By-ProfileIds', Handlers.utils.hasMatchingTag('Action
                 if #data.ProfileIds > 0 then
                     local placeholders = {}
 
-                    for _, id in ipairs(data.ProfileIds) do
+                    for _, _ in ipairs(data.ProfileIds) do
                         table.insert(placeholders, "?")
                     end
 
@@ -577,15 +472,107 @@ Handlers.add('Get-Profiles-By-Delegate', Handlers.utils.hasMatchingTag('Action',
 
 -- Create-Profile Handler (Original spawned profile message)
 Handlers.add('Create-Profile', Handlers.utils.hasMatchingTag('Action', 'Create-Profile'),
-        function(msg)
-            version_dispatcher('process_profile_action', msg, true)
-        end)
+        process_profile_action)
 
 -- Update-Profile Handler
 Handlers.add('Update-Profile', Handlers.utils.hasMatchingTag('Action', 'Update-Profile'),
+        process_profile_action)
+
+-- Data - { Id, Op, Role? }
+Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role'),
         function(msg)
-            version_dispatcher('process_profile_action', msg, false)
-        end)
+            local decode_check, data = decode_message_data(msg.Data)
+            local profile_id = msg.Target
+            local user_id = msg.From
+            if decode_check and data then
+                if not data.Id or not data.Op then
+                    ao.send({
+                        Target = profile_id,
+                        Action = 'Input-Error',
+                        Tags = {
+                            Status = 'Error',
+                            Message = 'Invalid arguments, required { Id, Op, Role }'
+                        }
+                    })
+                    return
+                end
+            end
+
+            if not is_authorized(profile_id, user_id, HandlerRoles['Update-Role']) then
+                ao.send({
+                    Target = profile_id,
+                    Action = 'Authorization-Error',
+                    Tags = {
+                        Status = 'Error',
+                        Message = 'Unauthorized to access this handler'
+                    }
+                })
+                return
+            end
+
+
+
+            local Id = data.Id or msg.Tags.Id
+            local Role = data.Role or msg.Tags.Role
+            local Op = data.Op or msg.Tags.Op
+
+            if not Id or not Op then
+                ao.send({
+                    Target = profile_id,
+                    Action = 'Input-Error',
+                    Tags = {
+                        Status = 'Error',
+                        Message =
+                        'Invalid arguments, required { Id, Op } in data or tags'
+                    }
+                })
+                return
+            end
+            -- handle add, update, or remove Ops
+            local stmt
+            if data.Op == 'Add' then
+                stmt = Db:prepare(
+                        'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
+                stmt:bind_values(profile_id, Id, Role)
+
+            elseif data.Op == 'Update' then
+                stmt = Db:prepare(
+                        'UPDATE ao_profile_authorization SET role = ? WHERE profile_id = ? AND delegate_address = ?')
+                stmt:bind_values(Role, profile_id, Id)
+
+            elseif data.Op == 'Delete' then
+                stmt = Db:prepare(
+                        'DELETE FROM ao_profile_authorization WHERE profile_id = ? AND delegate_address = ?')
+                stmt:bind_values(profile_id, Id)
+            end
+
+            local step_status = stmt:step()
+            stmt:finalize()
+            if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
+                print("Error: " .. Db:errmsg())
+                ao.send({
+                    Target = profile_id,
+                    Action = 'DB_STEP_CODE',
+                    Tags = {
+                        Status = 'ERROR',
+                        Message = 'sqlite step error'
+                    },
+                    Data = { DB_STEP_MSG = step_status }
+                })
+                return json.encode({ Code = step_status })
+            end
+
+            ao.send({
+                Target = profile_id,
+                Action = 'Success',
+                Tags = {
+                    Status = 'Success',
+                    Message = 'Auth Record Success'
+                },
+                Data = json.encode({ ProfileId = profile_id, DelegateAddress = Id, Role = Role })
+            })
+        end
+)
 
 Handlers.add('Count-Profiles', Handlers.utils.hasMatchingTag('Action', 'Count-Profiles'),
         function(msg)
@@ -632,9 +619,13 @@ Handlers.add('Read-Metadata', Handlers.utils.hasMatchingTag('Action', 'Read-Meta
                     })
                 end
             end)
-            if not status then
+            if err or not status then
                 print("Error: ", err)
                 return
+            end
+
+            if foundRows == false then
+                print('No rows found matching the criteria.')
             end
             ao.send({
                 Target = msg.From,
@@ -652,13 +643,17 @@ Handlers.add('Read-Metadata', Handlers.utils.hasMatchingTag('Action', 'Read-Meta
 Handlers.add('Read-Auth', Handlers.utils.hasMatchingTag('Action', 'Read-Auth'),
         function(msg)
             local metadata = {}
+            local string = ''
+            local foundRows = false
             local status, err = pcall(function()
                 for row in Db:nrows('SELECT profile_id, delegate_address, role FROM ao_profile_authorization') do
+                    foundRows = true
                     table.insert(metadata, {
                         ProfileId = row.profile_id,
                         CallerAddress = row.delegate_address,
                         Role = row.role,
                     })
+                    string = string .. "ProfileId: " .. row.profile_id .. " CallerAddress: " .. row.delegate_address .. " Role: " .. row.role .. "\n"
                 end
             end)
             if not status then
@@ -670,7 +665,7 @@ Handlers.add('Read-Auth', Handlers.utils.hasMatchingTag('Action', 'Read-Auth'),
                 Action = 'Read-Metadata-Success',
                 Tags = {
                     Status = 'Success',
-                    Message = 'Metadata retrieved',
+                    Message = 'Auth Data retrieved',
                 },
                 Data = json.encode(metadata)
             })
@@ -733,6 +728,18 @@ Handlers.add('Read-Profile', Handlers.utils.hasMatchingTag('Action', 'Read-Profi
                 return json.encode({ Code = step_status })
             end
 
+            if step_status == sqlite3.DONE then
+                ao.send({
+                    Target = msg.From,
+                    Action = 'Read-Profile-Error',
+                    Tags = {
+                        Status = 'Error',
+                        Message = 'Profile not found'
+                    }
+                })
+                return
+            end
+
             row = select_stmt:get_named_values()
             local metadata = {
                 ProfileId = row.id,
@@ -749,7 +756,7 @@ Handlers.add('Read-Profile', Handlers.utils.hasMatchingTag('Action', 'Read-Profi
                 Action = 'Success',
                 Tags = {
                     Status = 'Success',
-                    Message = 'Record Inserted'
+                    Message = 'Read success'
                 },
                 Data = json.encode(metadata)
             })

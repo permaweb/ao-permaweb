@@ -2,9 +2,11 @@ local bint = require('.bint')(256)
 local json = require('json')
 
 if Name ~= '<NAME>' then Name = '<NAME>' end
+if Collection ~= '<COLLECTION>' then Collection = '<COLLECTION>' end
+if Creator ~= '<CREATOR>' then Creator = '<CREATOR>' end
 if Ticker ~= '<TICKER>' then Ticker = '<TICKER>' end
 if Denomination ~= '<DENOMINATION>' then Denomination = '<DENOMINATION>' end
-if not Balances then Balances = { [Owner] = '<BALANCE>' } end
+if not Balances then Balances = { ['<CREATOR>'] = '<BALANCE>' } end
 
 Transferable = true
 
@@ -44,25 +46,6 @@ Handlers.add('Info', Handlers.utils.hasMatchingTag('Action', 'Info'), function(m
 		})
 	})
 end)
-
-function Trusted(msg)
-	local mu = 'fcoN_xJeisVsPXA-trzVAuIiqO3ydLQxM-L4XbrQKzY'
-	-- return false if trusted
-	if msg.Owner == mu then
-		return false
-	end
-	if msg.From == msg.Owner then
-		return false
-	end
-	return true
-end
-
-Handlers.prepend('qualify message',
-	Trusted,
-	function(msg)
-		print('This Msg is not trusted!')
-	end
-)
 
 -- Transfer balance to recipient (Data - { Recipient, Quantity })
 Handlers.add('Transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), function(msg)
@@ -231,7 +214,7 @@ Handlers.add('Balances', Handlers.utils.hasMatchingTag('Action', 'Balances'),
 
 -- Initialize a request to add the uploaded asset to a profile
 Handlers.add('Add-Asset-To-Profile', Handlers.utils.hasMatchingTag('Action', 'Add-Asset-To-Profile'), function(msg)
-	if msg.From ~= Owner and msg.From ~= Owner and msg.From ~= ao.id then
+	if msg.From ~= Owner and msg.From ~= Creator and msg.From ~= ao.id then
 		ao.send({
 			Target = msg.From,
 			Action = 'Authorization-Error',
@@ -243,15 +226,15 @@ Handlers.add('Add-Asset-To-Profile', Handlers.utils.hasMatchingTag('Action', 'Ad
 		return
 	end
 
-	if checkValidAddress(msg.Tags.ProfileProcess) then
-		ao.assign({ Processes = { msg.Tags.ProfileProcess }, Message = ao.id, Exclude = { 'Data','Anchor' }})
+	if checkValidAddress(Creator) then
+		ao.assign({ Processes = { Creator }, Message = ao.id, Exclude = { 'Data','Anchor' }})
 	else
 		ao.send({
 			Target = msg.From,
 			Action = 'Input-Error',
 			Tags = {
 				Status = 'Error',
-				Message = 'ProfileProcess tag not specified or not a valid Process ID'
+				Message = 'Creator tag not specified on asset spawn or not a valid Profile Process ID'
 			}
 		})
 	end

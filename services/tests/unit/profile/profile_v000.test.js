@@ -5,10 +5,10 @@ import fs from 'node:fs'
 import {findMessageByTag, findMessageByTagValue, logSendResult} from "../../../utils/message.js";
 
 const REGISTRY = 'kFYMezhjcPCZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI'
-const PROFILE_A_ID = "PROFILE_A_ID";
-const AUTHORIZED_ADDRESS_A = "ADDRESS_A";
-const AUTHORIZED_ADDRESS_B = "ADDRESS_B";
-const {Send} = SendFactory({ processId: PROFILE_A_ID, moduleId: '5555'});
+const PROFILE_A_ID = "PROFILE_A_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
+const AUTHORIZED_ADDRESS_A = "ADDRESS_A_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
+const AUTHORIZED_ADDRESS_B = "ADDRESS_B_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
+const {Send} = SendFactory({ processId: PROFILE_A_ID, moduleId: '5555', defaultOwner: AUTHORIZED_ADDRESS_A, defaultFrom: AUTHORIZED_ADDRESS_A});
 function getTag(msg, tagName) {
     return msg?.Tags?.find(t => t.name === tagName)?.value ?? null;
 }
@@ -18,7 +18,7 @@ test('load source profile', async () => {
     const result = await Send({ Owner: AUTHORIZED_ADDRESS_A, From: AUTHORIZED_ADDRESS_A, Action: "Eval", Data: code })
 })
 
-test('should fail to update if from is not owner', async () => {
+test('should fail to update if from is not profile owner', async () => {
     const updateResult = await Send({ Id: "1111", From: AUTHORIZED_ADDRESS_B, Action: "Update-Profile", Data: JSON.stringify({ UserName: "Steve", DisplayName: "Steverino" }) })
     // logSendResult(updateResult, "Update-Profile--Fail")
     // const registryMessages = findMessageByTarget(updateResult.Messages, REGISTRY)
