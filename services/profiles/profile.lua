@@ -952,7 +952,7 @@ Handlers.prepend("qualify message",
 		Trusted,
 		function (msg)
 			ao.send({
-				Target = reply_to,
+				Target = msg.From,
 				Action = 'TRUSTED-Error',
 				Tags = {
 					Status = 'Error',
