@@ -267,9 +267,8 @@ local function add_uploaded_asset(msg)
 	local reply_to = msg.Target or msg.From
 	local backwards_compatibility_check = msg.Target == ao.id and true or false
 	local asset_id = msg.Id
-	assert(type(tonumber(msg.Tags.Quantity)) == 'number', 'qty must be a valid number')
-	local quantity = msg.Tags.Quantity or "0"
 	local quantityNumber = tonumber(msg.Tags.Quantity)
+	local quantity = msg.Tags.Quantity or "0"
 
 	local decode_check, data = decode_message_data(msg.Data)
 	if backwards_compatibility_check then
@@ -288,7 +287,6 @@ local function add_uploaded_asset(msg)
 			end
 			asset_id = data.Id
 			quantity = data.Quantity
-			assert(type(tonumber(quantity)) == 'number', 'qty must be a valid number')
 			quantityNumber = tonumber(quantity)
 
 		else
