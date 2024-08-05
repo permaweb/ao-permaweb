@@ -12,7 +12,7 @@ ao.addAssignable("add-uploaded-asset", { Action = 'Add-Uploaded-Asset' })
 --   DateUpdated
 --   Version
 -- }
-CurrentProfileVersion = 0.1
+CurrentProfileVersion = '0.0.2'
 
 if not Profile then Profile = {} end
 
@@ -46,7 +46,12 @@ local HandlerRoles = {
 -- Roles: { Id, Role } []
 if not Roles then Roles = {} end
 
-REGISTRY = 'iySPL7MpiZCvei0DIFzjNOudjbCnHHXf9rPgbXH-T90'
+-- Staging Registry
+REGISTRY = 'jndJ0phxOaJJU6CHZVX7zo2Wl5vI2KQ1z4i3VnV4DrM'
+
+-- Production Registry
+-- REGISTRY = 'SNy4m-DrqxWl01YqGM4sxI8qCni-58re8uuJLvZPypY'
+
 
 local function check_valid_address(address)
 	if not address or type(address) ~= 'string' then
@@ -719,6 +724,28 @@ Handlers.add('Credit-Notice', Handlers.utils.hasMatchingTag('Action', 'Credit-No
 					Message = 'Balance transferred'
 				}
 			})
+		end
+		-- send wAR to own wallet vs storing in profile process
+		if msg.Tags.Sender ~= Owner then
+			local walletTransferTokens = { 'xU9zFkq3X2ZQ6olwNVvr1vUWIjc3kXTWr7xKQD6dh10' }
+			local runWalletTransfer = false
+			for _, value in pairs(walletTransferTokens) do
+				if value == msg.From then
+					runWalletTransfer = true
+					break
+				end
+			end
+
+			if runWalletTransfer then
+				ao.send({
+					Target = msg.From,
+					Action = 'Transfer',
+					Tags = {
+						Recipient = Owner,
+						Quantity = msg.Tags.Quantity
+					}
+				})
+			end
 		end
 	end)
 

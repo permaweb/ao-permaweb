@@ -470,6 +470,101 @@ Handlers.add('Get-Profiles-By-Delegate', Handlers.utils.hasMatchingTag('Action',
             end
         end)
 
+-- Data - { Addresses }
+Handlers.add('Read-Profiles', Handlers.utils.hasMatchingTag('Action', 'Read-Profiles'),
+        function(msg)
+            local json = require 'json'
+
+            local function decode_message_data(data)
+                local status, decoded_data = pcall(json.decode, data)
+                if not status or type(decoded_data) ~= 'table' then
+                    return false, nil
+                end
+                return true, decoded_data
+            end
+
+            local decode_check, data = decode_message_data(msg.Data)
+
+            if decode_check and data then
+                if not data.Addresses or type(data.Addresses) ~= 'table' then
+                    ao.send({
+                        Target = msg.From,
+                        Action = 'Input-Error',
+                        Tags = {
+                            Status = 'Error',
+                            Message = 'Invalid arguments, required { Addresses }'
+                        }
+                    })
+                    return
+                end
+
+                local associated_profiles = {}
+
+                -- Create placeholders
+                local placeholders = {}
+                for i = 1, #data.Addresses do
+                    table.insert(placeholders, '?')
+                end
+                local placeholders_str = table.concat(placeholders, ', ')
+
+                -- Prepare the SQL query
+                local sql_query = [[
+                SELECT profile_id, delegate_address
+                FROM ao_profile_authorization
+                WHERE delegate_address IN (]] .. placeholders_str .. [[)
+            ]]
+
+                local authorization_lookup = Db:prepare(sql_query)
+
+                -- Bind values
+                for i, address in ipairs(data.Addresses) do
+                    authorization_lookup:bind(i, address)
+                end
+
+                -- Execute query and gather results
+                for row in authorization_lookup:nrows() do
+                    table.insert(associated_profiles, {
+                        ProfileId = row.profile_id,
+                        CallerAddress = row.delegate_address
+                    })
+                end
+
+                authorization_lookup:finalize()
+
+                if #associated_profiles > 0 then
+                    ao.send({
+                        Target = msg.From,
+                        Action = 'Profile-Success',
+                        Tags = {
+                            Status = 'Success',
+                            Message = 'Associated profiles fetched'
+                        },
+                        Data = json.encode(associated_profiles)
+                    })
+                else
+                    ao.send({
+                        Target = msg.From,
+                        Action = 'Profile-Error',
+                        Tags = {
+                            Status = 'Error',
+                            Message = 'No profiles associated with the provided addresses'
+                        }
+                    })
+                end
+            else
+                ao.send({
+                    Target = msg.From,
+                    Action = 'Input-Error',
+                    Tags = {
+                        Status = 'Error',
+                        Message = string.format(
+                                'Failed to parse data, received: %s. %s.', msg.Data,
+                                'Data must be an object - { Addresses }')
+                    }
+                })
+            end
+        end)
+
 -- Create-Profile Handler (Original spawned profile message)
 Handlers.add('Create-Profile', Handlers.utils.hasMatchingTag('Action', 'Create-Profile'),
         process_profile_action)
