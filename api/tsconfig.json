@@ -6,7 +6,8 @@
     "declaration": true,
     "sourceMap": true,
     "strict": true,
-    "baseUrl": "./"
+    "baseUrl": "./",
+    "rootDir": "./src",
   },
   "include": ["./src/**/*"],
   "exclude": ["node_modules", "dist"]

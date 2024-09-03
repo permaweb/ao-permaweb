@@ -20,5 +20,8 @@
   "license": "ISC",
   "devDependencies": {
     "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "@permaweb/aoconnect": "^0.0.59"
   }
 }
