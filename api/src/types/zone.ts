@@ -4,5 +4,5 @@ export type ReadProfileArgs = {
 }
 
 export type APICreateZone = {
-    //
+
 }

@@ -12,12 +12,11 @@ export async function readProfile(processId: string, keys: string[]) {
 export async function updateProfile(processId: string, entries: {[key: string]: string}) {
     try {
         /*
-
-        if len > 1
-        await aoSend(
-            action="PROFILE_SET"
-            data=entries
-        )
+            if len > 1
+            await aoSend(
+                action="PROFILE_SET"
+                data=entries
+            )
         */
     } catch (e) {
         console.error(e)

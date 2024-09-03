@@ -68,7 +68,7 @@ export async function aoDryRun(args: APIDryRunType): Promise<any> {
 
 export async function aoMessageResult(args: APIResultType): Promise<any> {
     try {
-        const {Messages, Spawns, Output, Error} = await result({message: args.messageId, process: args.processId});
+        const {Messages } = await result({message: args.messageId, process: args.processId});
 
         if (Messages && Messages.length) {
             const response: { [key: string]: any } = {};
