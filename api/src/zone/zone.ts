@@ -1,8 +1,8 @@
-import {aoSpawn} from "../common/ao/ao";
-import {APICreateZone} from "../types/zone";
+import { aoSpawn } from '../common/ao';
+import { APICreateZone } from '../types/zone';
 
 export async function createZone(args: APICreateZone) {
-/*
+	/*
     const module = "abc"
     const scheduler = "xyz"
     const signer = ""
@@ -15,7 +15,7 @@ export async function createZone(args: APICreateZone) {
 
  */
 }
-    /*
+/*
 export async function initZone() {
     // wait for zone
     // eval(big script)

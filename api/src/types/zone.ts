@@ -1,8 +1,6 @@
 export type ReadProfileArgs = {
-    processId: string;
-    keys: string[]
-}
+	processId: string;
+	keys: string[];
+};
 
-export type APICreateZone = {
-
-}
+export type APICreateZone = {};
