@@ -17,7 +17,7 @@
 	},
 	"scripts": {
 		"format": "eslint --fix . && npx prettier --write .",
-		"build": "tsc"
+		"build": "tsc && tsc-alias"
 	},
 	"dependencies": {
 		"@permaweb/aoconnect": "^0.0.59"
@@ -29,6 +29,7 @@
 		"eslint": "^8.35.0",
 		"eslint-plugin-import": "^2.27.5",
 		"eslint-plugin-simple-import-sort": "^10.0.0",
+		"tsc-alias": "^1.8.10",
 		"typescript": "^5.5.4"
 	}
 }
