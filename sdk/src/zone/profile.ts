@@ -2,7 +2,7 @@ import { connect, createDataItemSigner } from '@permaweb/aoconnect';
 
 import { aoDryRun, aoSpawn } from '../common/ao';
 
-import { ReadProfileArgs } from './types';
+import { ReadProfileArgs } from 'types/profile';
 
 export async function readProfile(processId: string, keys: string[]) {
 	try {

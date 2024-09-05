@@ -1,5 +1,5 @@
 import { APIDryRunType, APIResultType, APISendType, APISpawnType } from 'types/ao';
-import { TagType } from 'types/common';
+import { TagType } from 'types/helpers';
 
 import { connect, createDataItemSigner, dryrun, message, result, results } from '@permaweb/aoconnect';
 

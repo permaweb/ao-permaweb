@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"module": "CommonJS",
+		"module": "esnext",
 		"target": "ES6",
 		"declaration": true,
 		"sourceMap": true,
@@ -8,11 +8,13 @@
 		"baseUrl": "src",
 		"rootDir": "./src",
 		"outDir": "./dist",
+		"moduleResolution": "Node",
+		"lib": ["dom", "dom.iterable", "esnext"],
 		"paths": {
 			"types/*": ["types/*"],
 			"common/*": ["common/*"]
 		}
 	},
-	"include": ["src"],
-	"exclude": ["node_modules", "dist"]
+	"include": ["src/**/*"],
+	"exclude": ["dist", "node_modules"]
 }
