@@ -1,12 +1,5 @@
 import {
-	AssetDetailType,
-	AssetOrderType,
-	AssetSortType,
 	DateType,
-	EntryOrderType,
-	OrderbookEntryType,
-	OwnerType,
-	RegistryProfileType,
 } from 'types/helpers';
 
 declare const InstallTrigger: any;

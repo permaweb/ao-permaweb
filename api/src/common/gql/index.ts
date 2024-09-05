@@ -1,10 +1,4 @@
-// import { dispatch } from '@othent/kms';
-//
-// import Arweave from 'arweave';
-// import { ArweaveWebIrys } from '@irys/sdk/build/esm/web/tokens/arweave';
-
-// import { CONTENT_TYPES, CURSORS, GATEWAYS, PAGINATORS, UPLOAD_CONFIG } from 'common/helpers/config';
-import { CONTENT_TYPES, PAGINATORS, CURSORS, GATEWAYS } from 'common/helpers/config';
+import { PAGINATORS, CURSORS, GATEWAYS } from 'common/helpers/config';
 import {
 	BatchAGQLResponseType,
 	BatchGQLArgsType,
@@ -12,10 +6,7 @@ import {
 	GQLArgsType,
 	GQLNodeResponseType,
 	QueryBodyGQLArgsType,
-	TagType,
-	UploadMethodType,
-} from 'types/helpers';
-import { getByteSize } from 'common/helpers/utils';
+} from 'types/gql';
 
 export async function getGQLData(args: GQLArgsType): Promise<DefaultGQLResponseType> {
 	const paginator = args.paginator ? args.paginator : PAGINATORS.default;
