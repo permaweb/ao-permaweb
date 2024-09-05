@@ -1,6 +1,9 @@
-export type ReadProfileArgs = {
-	processId: string;
-	keys: string[];
-};
+import {TagType} from "types/helpers";
 
-export type APICreateZone = {};
+export type APICreateZone = {
+	module: string;
+	scheduler: string;
+	wallet: string;
+	tags: TagType[];
+	data: any;
+};
