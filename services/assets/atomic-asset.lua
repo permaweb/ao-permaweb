@@ -165,11 +165,19 @@ Handlers.add('Mint', Handlers.utils.hasMatchingTag('Action', 'Mint'), function(m
 	end
 end)
 
--- Read balance (Data - { Target })
+-- Read balance ({ Recipient | Target })
 Handlers.add('Balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), function(msg)
-	local decodeCheck, data = decodeMessageData(msg.Data)
+	local data
 
-	if decodeCheck and data then
+	if msg.Tags.Recipient then
+		data = { Target = msg.Tags.Recipient }
+	elseif msg.Tags.Target then
+		data = { Target = msg.Tags.Target }
+	else
+		data = { Target = msg.From }
+	end
+
+	if data then
 		-- Check if target is present
 		if not data.Target then
 			ao.send({ Target = msg.From, Action = 'Input-Error', Tags = { Status = 'Error', Message = 'Invalid arguments, required { Target }' } })
@@ -184,13 +192,14 @@ Handlers.add('Balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), func
 
 		-- Check if target has a balance
 		if not Balances[data.Target] then
-			ao.send({ Target = msg.From, Action = 'Read-Error', Tags = { Status = 'Error', Message = 'Target does not have a balance' } })
+			ao.send({ Target = msg.From, Action = 'Balance-Notice', Tags = { Status = 'Error', Message = 'Target does not have a balance' }, Data =
+			'0' })
 			return
 		end
 
 		ao.send({
 			Target = msg.From,
-			Action = 'Read-Success',
+			Action = 'Balance-Notice',
 			Tags = { Status = 'Success', Message = 'Balance received' },
 			Data =
 				Balances[data.Target]
@@ -227,7 +236,7 @@ Handlers.add('Add-Asset-To-Profile', Handlers.utils.hasMatchingTag('Action', 'Ad
 	end
 
 	if checkValidAddress(Creator) then
-		ao.assign({ Processes = { Creator }, Message = ao.id, Exclude = { 'Data','Anchor' }})
+		ao.assign({ Processes = { Creator }, Message = ao.id, Exclude = { 'Data', 'Anchor' } })
 	else
 		ao.send({
 			Target = msg.From,
