@@ -61,6 +61,10 @@ Handlers.add('Transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), fu
 
 	if checkValidAddress(data.Recipient) and checkValidAmount(data.Quantity) then
 		-- Transfer is valid, calculate balances
+		if not Balances[msg.From] then
+			Balances[msg.From] = '0'
+		end
+
 		if not Balances[data.Recipient] then
 			Balances[data.Recipient] = '0'
 		end
@@ -192,17 +196,28 @@ Handlers.add('Balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), func
 
 		-- Check if target has a balance
 		if not Balances[data.Target] then
-			ao.send({ Target = msg.From, Action = 'Balance-Notice', Tags = { Status = 'Error', Message = 'Target does not have a balance' }, Data =
-			'0' })
+			ao.send({
+				Target = msg.From,
+				Action = 'Balance-Notice',
+				Tags = {
+					Status = 'Error',
+					Message = 'Target does not have a balance',
+					Account = data.Target
+				},
+				Data = '0'
+			})
 			return
 		end
 
 		ao.send({
 			Target = msg.From,
 			Action = 'Balance-Notice',
-			Tags = { Status = 'Success', Message = 'Balance received' },
-			Data =
-				Balances[data.Target]
+			Tags = {
+				Status = 'Success',
+				Message = 'Balance received',
+				Account = data.Target
+			},
+			Data = Balances[data.Target]
 		})
 	else
 		ao.send({
@@ -223,27 +238,22 @@ Handlers.add('Balances', Handlers.utils.hasMatchingTag('Action', 'Balances'),
 
 -- Initialize a request to add the uploaded asset to a profile
 Handlers.add('Add-Asset-To-Profile', Handlers.utils.hasMatchingTag('Action', 'Add-Asset-To-Profile'), function(msg)
-	if msg.From ~= Owner and msg.From ~= Creator and msg.From ~= ao.id then
+	if checkValidAddress(msg.Tags.ProfileProcess) then
 		ao.send({
-			Target = msg.From,
-			Action = 'Authorization-Error',
-			Tags = {
-				Status = 'Error',
-				Message = 'Unauthorized to access this handler'
-			}
+			Target = msg.Tags.ProfileProcess,
+			Action = 'Add-Uploaded-Asset',
+			Data = json.encode({
+				Id = ao.id,
+				Quantity = msg.Tags.Quantity or '0'
+			})
 		})
-		return
-	end
-
-	if checkValidAddress(Creator) then
-		ao.assign({ Processes = { Creator }, Message = ao.id, Exclude = { 'Data', 'Anchor' } })
 	else
 		ao.send({
 			Target = msg.From,
 			Action = 'Input-Error',
 			Tags = {
 				Status = 'Error',
-				Message = 'Creator tag not specified on asset spawn or not a valid Profile Process ID'
+				Message = 'ProfileProcess tag not specified or not a valid Process ID'
 			}
 		})
 	end
