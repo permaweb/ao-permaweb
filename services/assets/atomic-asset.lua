@@ -49,7 +49,7 @@ end)
 
 -- Transfer balance to recipient (Data - { Recipient, Quantity })
 Handlers.add('Transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), function(msg)
-	if not Transferable then
+	if not Transferable and msg.From ~= ao.id then
 		ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Transfers are not allowed' } })
 		return
 	end
