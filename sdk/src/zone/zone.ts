@@ -1,7 +1,7 @@
 import {aoMessageResult, aoSend, aoSpawn} from '../common/ao';
 import { APICreateZone } from '../types/zone';
-import {getGQLData} from "common/gql";
-import {GATEWAYS} from "common/helpers/config";
+import {getGQLData} from "../common/gql";
+import {GATEWAYS} from "../common/helpers/config";
 
 export async function createZone(args: APICreateZone, setStatus: (status: any) => void) {
 	const spawnArgs = {
