@@ -4,13 +4,13 @@ import { aoDryRun, aoSpawn } from '../common/ao';
 
 import { ReadProfileArgs } from 'types/profile';
 
-export async function readProfile(processId: string, keys: string[]) {
+export async function readMetadata(processId: string, keys: string[]) {
 	try {
 		// await aoDryRun( ... )
 	} catch (e) {}
 }
 
-export async function updateProfile(processId: string, entries: { [key: string]: string }) {
+export async function updateMetadata(processId: string, entries: { [key: string]: string }) {
 	try {
 		/*
             if len > 1
