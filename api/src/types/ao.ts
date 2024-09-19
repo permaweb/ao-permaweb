@@ -29,3 +29,12 @@ export type APIDryRunType = {
 	tags?: TagType[] | null;
 	data?: string | null;
 };
+
+export type APICreateProcessType = {
+	module: string;
+	scheduler: string;
+	tags: TagType[];
+	wallet: any;
+	evalTxid: string;
+	spawnData?: string;
+}

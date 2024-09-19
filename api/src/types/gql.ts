@@ -1,10 +1,10 @@
 import {TagFilterType, TagType} from "types/helpers";
 
 export type BaseGQLArgsType = {
-	ids: string[] | null;
-	tagFilters: TagFilterType[] | null;
-	owners: string[] | null;
-	cursor: string | null;
+	ids?: string[] | null;
+	tagFilters?: TagFilterType[] | null;
+	owners?: string[];
+	cursor?: string;
 	paginator?: number;
 	minBlock?: number;
 	maxBlock?: number;

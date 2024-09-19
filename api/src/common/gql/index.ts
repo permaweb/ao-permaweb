@@ -1,4 +1,4 @@
-import { PAGINATORS, CURSORS, GATEWAYS } from 'common/helpers';
+import { PAGINATORS, CURSORS, GATEWAYS } from '../helpers';
 import {
 	BatchAGQLResponseType,
 	BatchGQLArgsType,
