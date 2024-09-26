@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"module": "esnext",
+		"module": "CommonJS",
 		"target": "ES6",
 		"declaration": true,
 		"sourceMap": true,
@@ -16,5 +16,5 @@
 		}
 	},
 	"include": ["src/**/*"],
-	"exclude": ["dist", "node_modules"]
+	"exclude": ["node_modules", "dist"]
 }

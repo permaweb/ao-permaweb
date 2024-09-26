@@ -17,7 +17,7 @@
 	},
 	"scripts": {
 		"format": "eslint --fix . && npx prettier --write .",
-		"build": "tsc && tsc-alias"
+		"build": "tsc"
 	},
 	"dependencies": {
 		"@permaweb/aoconnect": "^0.0.59"
