@@ -8,6 +8,8 @@
 		"baseUrl": "src",
 		"rootDir": "./src",
 		"outDir": "./dist",
+		"moduleResolution": "Node",
+		"lib": ["dom", "dom.iterable", "esnext"],
 		"paths": {
 			"types/*": ["types/*"],
 			"common/*": ["common/*"]

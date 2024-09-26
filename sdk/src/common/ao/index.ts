@@ -1,13 +1,15 @@
-import { APIDryRunType, APIResultType, APISendType, APISpawnType } from 'types/ao';
-import { TagType } from 'types/common';
+import {APICreateProcessType, APIDryRunType, APIResultType, APISendType, APISpawnType} from 'types/ao';
+import { TagType } from 'types/helpers';
 
-import { connect, createDataItemSigner, dryrun, message, result, results } from '@permaweb/aoconnect';
+import { connect, createDataItemSigner, dryrun, message, result, results  } from '@permaweb/aoconnect';
 
-import { getTagValue } from '../utils';
+import { getTagValue } from 'common/helpers';
+import {GATEWAYS, getTxEndpoint} from "common";
+import {getGQLData} from "common";
 
+export const RETRY_COUNT = 200;
 export async function aoSpawn(args: APISpawnType): Promise<any> {
 	const aos = connect();
-	
 	const processId = await aos.spawn({
 		module: args.module,
 		scheduler: args.scheduler,
@@ -194,4 +196,81 @@ export async function aoMessageResults(args: {
 	} catch (e) {
 		console.error(e);
 	}
+}
+
+async function waitForProcess(processId: string, setStatus?: (status: any) => void) {
+	let retries = 0;
+
+	while (retries < RETRY_COUNT) {
+		await new Promise((r) => setTimeout(r, 2000));
+
+		const gqlResponse = await getGQLData({
+			gateway: GATEWAYS.goldsky,
+			ids: [processId],
+		});
+
+		if (gqlResponse?.data?.length) {
+			const foundProcess = gqlResponse.data[0].node.id;
+			console.log(`Fetched transaction -`, foundProcess);
+			return foundProcess;
+		} else {
+			console.log(`Transaction not found -`, processId);
+			retries++;
+			setStatus && setStatus(`Retrying: ${retries}`);
+		}
+	}
+
+	setStatus && setStatus("Error, not found");
+	throw new Error(`Profile not found, please try again`);
+}
+
+export async function aoCreateProcess(args: APICreateProcessType, statusCB?: (status: any) => void): Promise<any> {
+	try {
+		const processSrcFetch = await fetch(getTxEndpoint(args.evalTxid));
+
+		const processId = await aoSpawn({
+			module: args.module,
+			scheduler: args.scheduler,
+			data: args.spawnData,
+			tags: args.tags,
+			wallet: args.wallet
+		})
+
+		const src = await processSrcFetch.text()
+
+		await waitForProcess(processId, statusCB)
+		statusCB && statusCB("Spawned and found:" + processId)
+		const evalMessage = await aoSend({
+			processId,
+			wallet: args.wallet,
+			action: 'Eval',
+			data: src,
+			tags: args.tags,
+			useRawData: true,
+		})
+		statusCB && statusCB("Eval sent")
+		console.log('evalmsg', evalMessage)
+
+		const evalResult = await aoMessageResult({
+			processId: processId,
+			messageId: evalMessage,
+			messageAction: 'Eval',
+		});
+		statusCB && statusCB("Eval success")
+		console.log(evalResult);
+
+	} catch (e: unknown) {
+		let message = '';
+		if (e instanceof Error) {
+			message = e.message;
+		} else if (typeof e === "string" ) {
+			message = e;
+		} else {
+			message = "Unknown error";
+		}
+		statusCB && statusCB(`Create failed: message: ${message}`)
+	}
+	// spawn
+	// wait/fetch
+	// eval
 }

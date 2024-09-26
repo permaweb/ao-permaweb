@@ -1,9 +1,8 @@
-import { TagType } from './common';
+import { TagType } from './helpers';
 
 export type APISpawnType = {
 	module: string;
 	scheduler: string;
-	signer: any;
 	tags: TagType[];
 	data: any;
 	wallet: any;
@@ -30,3 +29,12 @@ export type APIDryRunType = {
 	tags?: TagType[] | null;
 	data?: string | null;
 };
+
+export type APICreateProcessType = {
+	module: string;
+	scheduler: string;
+	tags: TagType[];
+	wallet: any;
+	evalTxid: string;
+	spawnData?: string;
+}
