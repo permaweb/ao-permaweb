@@ -10,7 +10,7 @@ import {getGQLData} from "common";
 export const RETRY_COUNT = 200;
 export async function aoSpawn(args: APISpawnType): Promise<any> {
 	const aos = connect();
-	
+	console.log('doing the thing')
 	const processId = await aos.spawn({
 		module: args.module,
 		scheduler: args.scheduler,
