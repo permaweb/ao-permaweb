@@ -12,7 +12,8 @@
 		"lib": ["dom", "dom.iterable", "esnext"],
 		"paths": {
 			"types/*": ["types/*"],
-			"common/*": ["common/*"]
+			"common/*": ["common/*"],
+			"common/helpers": ["common/helpers"]
 		}
 	},
 	"include": ["src/**/*"],

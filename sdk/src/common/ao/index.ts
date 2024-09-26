@@ -3,11 +3,11 @@ import { TagType } from 'types/helpers';
 
 import { connect, createDataItemSigner, dryrun, message, result, results  } from '@permaweb/aoconnect';
 
-import { getTagValue } from '../utils';
-import {GATEWAYS, getTxEndpoint} from "../helpers";
-import {getGQLData} from "../gql";
-import {RETRY_COUNT} from "./utils";
+import { getTagValue } from 'common/helpers';
+import {GATEWAYS, getTxEndpoint} from "common";
+import {getGQLData} from "common";
 
+export const RETRY_COUNT = 200;
 export async function aoSpawn(args: APISpawnType): Promise<any> {
 	const aos = connect();
 	
