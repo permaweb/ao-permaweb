@@ -49,7 +49,7 @@ end)
 
 -- Transfer balance to recipient (Data - { Recipient, Quantity })
 Handlers.add('Transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), function(msg)
-	if not Transferable then
+	if not Transferable and msg.From ~= ao.id then
 		ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Transfers are not allowed' } })
 		return
 	end
@@ -61,6 +61,10 @@ Handlers.add('Transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), fu
 
 	if checkValidAddress(data.Recipient) and checkValidAmount(data.Quantity) then
 		-- Transfer is valid, calculate balances
+		if not Balances[msg.From] then
+			Balances[msg.From] = '0'
+		end
+
 		if not Balances[data.Recipient] then
 			Balances[data.Recipient] = '0'
 		end
@@ -165,11 +169,19 @@ Handlers.add('Mint', Handlers.utils.hasMatchingTag('Action', 'Mint'), function(m
 	end
 end)
 
--- Read balance (Data - { Target })
+-- Read balance ({ Recipient | Target })
 Handlers.add('Balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), function(msg)
-	local decodeCheck, data = decodeMessageData(msg.Data)
+	local data
 
-	if decodeCheck and data then
+	if msg.Tags.Recipient then
+		data = { Target = msg.Tags.Recipient }
+	elseif msg.Tags.Target then
+		data = { Target = msg.Tags.Target }
+	else
+		data = { Target = msg.From }
+	end
+
+	if data then
 		-- Check if target is present
 		if not data.Target then
 			ao.send({ Target = msg.From, Action = 'Input-Error', Tags = { Status = 'Error', Message = 'Invalid arguments, required { Target }' } })
@@ -184,16 +196,28 @@ Handlers.add('Balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), func
 
 		-- Check if target has a balance
 		if not Balances[data.Target] then
-			ao.send({ Target = msg.From, Action = 'Read-Error', Tags = { Status = 'Error', Message = 'Target does not have a balance' } })
+			ao.send({
+				Target = msg.From,
+				Action = 'Balance-Notice',
+				Tags = {
+					Status = 'Error',
+					Message = 'Target does not have a balance',
+					Account = data.Target
+				},
+				Data = '0'
+			})
 			return
 		end
 
 		ao.send({
 			Target = msg.From,
-			Action = 'Read-Success',
-			Tags = { Status = 'Success', Message = 'Balance received' },
-			Data =
-				Balances[data.Target]
+			Action = 'Balance-Notice',
+			Tags = {
+				Status = 'Success',
+				Message = 'Balance received',
+				Account = data.Target
+			},
+			Data = Balances[data.Target]
 		})
 	else
 		ao.send({
@@ -214,27 +238,22 @@ Handlers.add('Balances', Handlers.utils.hasMatchingTag('Action', 'Balances'),
 
 -- Initialize a request to add the uploaded asset to a profile
 Handlers.add('Add-Asset-To-Profile', Handlers.utils.hasMatchingTag('Action', 'Add-Asset-To-Profile'), function(msg)
-	if msg.From ~= Owner and msg.From ~= Creator and msg.From ~= ao.id then
+	if checkValidAddress(msg.Tags.ProfileProcess) then
 		ao.send({
-			Target = msg.From,
-			Action = 'Authorization-Error',
-			Tags = {
-				Status = 'Error',
-				Message = 'Unauthorized to access this handler'
-			}
+			Target = msg.Tags.ProfileProcess,
+			Action = 'Add-Uploaded-Asset',
+			Data = json.encode({
+				Id = ao.id,
+				Quantity = msg.Tags.Quantity or '0'
+			})
 		})
-		return
-	end
-
-	if checkValidAddress(Creator) then
-		ao.assign({ Processes = { Creator }, Message = ao.id, Exclude = { 'Data','Anchor' }})
 	else
 		ao.send({
 			Target = msg.From,
 			Action = 'Input-Error',
 			Tags = {
 				Status = 'Error',
-				Message = 'Creator tag not specified on asset spawn or not a valid Profile Process ID'
+				Message = 'ProfileProcess tag not specified or not a valid Process ID'
 			}
 		})
 	end

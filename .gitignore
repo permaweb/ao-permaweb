@@ -2,6 +2,5 @@
 **node_modules
 **wallets
 **.DS_Store
-
-dist/
-.idea/
+**dist/
+**.idea/
