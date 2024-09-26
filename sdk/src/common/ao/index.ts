@@ -239,7 +239,6 @@ export async function aoCreateProcess(args: APICreateProcessType, statusCB?: (st
 
 		const src = await processSrcFetch.text()
 
-		console.log(src)
 		await waitForProcess(processId, statusCB)
 		statusCB && statusCB("Spawned and found:" + processId)
 		const evalMessage = await aoSend({
