@@ -1,9 +1,16 @@
 local json = require('json')
 local sqlite3 = require('lsqlite3')
 
+-- primary registry should keep a list of wallet/profile-id pairs
+
 Db = Db or sqlite3.open_memory()
 ao.addAssignable("AssignableRule", { Action = '_' })
+
+-- we have roles on who can do things, for now only owner used
 local HandlerRoles = {
+    ['Zone-Metadata.Set'] = {'Owner', 'Admin'},
+    ['Zone-Role-Update'] = {'Owner', 'Admin'},
+    -- legacy
     ['Update-Profile'] = {'Owner', 'Admin'},
     ['Add-Uploaded-Asset'] = {'Owner', 'Admin', 'Contributor'},
     ['Add-Collection'] = {'Owner', 'Admin', 'Contributor'},
@@ -16,6 +23,9 @@ local HandlerRoles = {
     ['Proxy-Action'] = {'Owner', 'Admin'},
     ['Update-Role'] = {'Owner', 'Admin'}
 }
+
+-- a table storing a mapping from registry addresses to actions that should be forwarded
+local Subscribers = {}
 
 local function decode_message_data(data)
     local status, decoded_data = pcall(json.decode, data)
@@ -50,6 +60,112 @@ local function is_authorized(profile_id, user_id, roles)
     return authorized
 end
 
+
+local function handle_subscribe(msg)
+    -- registries can subscribe to assignments
+    -- msg.from is the target
+    -- msg.data: {"Action-One", "Action-Two"}
+    local decode_check, data = decode_message_data(msg.Data)
+    if not decode_check then
+        ao.send({
+            Target = msg.From,
+            Action = 'ERROR',
+            Tags = {
+                Status = 'DECODE_FAILED',
+                Message = "Failed to decode data"
+            },
+            Data = { Code = "DECODE_FAILED" }
+        })
+        return
+    end
+
+    if not data or not data.actions or not #data.actions then
+        ao.send({
+            Target = msg.From,
+            Action = 'ERROR',
+            Tags = {
+                Status = 'DECODE_FAILED',
+                Message = "no subscribe actions found"
+            },
+            Data = { Code = "DECODE_FAILED" }
+        })
+        return
+    end
+    Subscribers[msg.From] = data.actions
+end
+
+local function handle_forward(msg)
+    local assignTargets = {}
+    -- for each Subscriber, add the subscriber to assignTargets if msg.Action is in Subscribers[subscriber_id]
+    for subscriber, actions in pairs(Subscribers) do
+        for _, action in ipairs(actions) do
+            if action == msg.Action then
+                table.insert(assignTargets, subscriber)
+            end
+        end
+    end
+    -- ao.assign to assignTargets
+    -- ao.assign({Processes = { ...assignTargets }, Message = msg.Id})
+    ao.assign({Processes = assignTargets, Message = msg.Id})
+end
+
+-- on spawn, tag Action = Create-Zone initializes profileId and owner
+-- make sure spawn is the correct type of thing
+local function handle_create_zone(msg)
+    local reply_to = msg.From
+    local decode_check, data = decode_message_data(msg.Data)
+    -- data may contain {"UserName":"x", ...etc}
+    if not decode_check then
+        ao.send({
+            Target = reply_to,
+            Action = 'ERROR',
+            Tags = {
+                Status = 'DECODE_FAILED',
+                Message = "Failed to decode data"
+            },
+            Data = { Code = "DECODE_FAILED" }
+        })
+        return
+    end
+    local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? AND profile_id = ? LIMIT 1')
+    check:bind_values(user_id, profile_id)
+    if check:step() ~= sqlite3.ROW then
+        is_update = false
+        local insert_auth = Db:prepare(
+                'INSERT INTO ao_profile_authorization (profile_id, delegate_address, role) VALUES (?, ?, ?)')
+        insert_auth:bind_values(profile_id, user_id, 'Owner')
+        insert_auth:step()
+        insert_auth:finalize()
+    else
+        ao.send({
+            Target = reply_to,
+            Action = 'ERROR',
+            Tags = {
+                Status = 'DECODE_FAILED',
+                Message = "Failed to decode data"
+            },
+            Data = { Code = "DECODE_FAILED" }
+        })
+        return
+    end
+    -- assign to subscribers
+end
+
+local function handle_zone_action(msg)
+    -- update roles
+            -- update local roles
+            -- forwardActions(msg)
+    -- update zone metadata
+            -- action is Zone-Metadata.Set
+            -- forwardActions(msg)
+    -- update assets
+end
+
+local function handle_update_metadata(msg)
+
+end
+
+
 local function process_profile_action(msg)
 
     local reply_to = msg.From
@@ -66,21 +182,15 @@ local function process_profile_action(msg)
         })
         return
     end
+
     local tags = msg.Tags or {}
-    -- see if new version of update
-    -- handle legacy authorized_address tag
-    local legacy_authorized_address = tags.AuthorizedAddress or decode_check and data.AuthorizedAddress or nil
-    -- new api: profile_id is msg id on spawn or msg.Target in update
     local target = msg.Target and msg.Target ~= "" and msg.Target or nil
-    local profile_id = legacy_authorized_address and msg.From or target or msg.Id -- create = msg.Id spawn
-    local user_id = legacy_authorized_address or msg.From -- (assigned) -- AuthorizedAddress
+    local profile_id = target or msg.Id -- create = msg.Id spawn
+    local user_id = msg.From -- (assigned) -- AuthorizedAddress
 
-    -- new api: after spawn, updates assigned will need to include ProfileProcess tag or data
-
-    -- update and new api if msg.Tags.Type == "Message" and msg.Target ~= ao.id (Self)
+    -- api: after spawn, updates assigned will need to include ProfileProcess tag or data
 
     local is_update = msg.Tags.Type == "Message" and msg.Target ~= ao.id or false -- and action == "Create-Profile" or action == "Update-Profile"
-    -- handle legacy "every update is create action" bug by checking roles first
     if not is_update then
         local check = Db:prepare('SELECT 1 FROM ao_profile_authorization WHERE delegate_address = ? AND profile_id = ? LIMIT 1')
         check:bind_values(user_id, profile_id)
@@ -237,7 +347,6 @@ local function process_profile_action(msg)
         },
         Data = json.encode(metadataValues)
     })
-
 
 end
 
@@ -668,34 +777,6 @@ Handlers.add('Update-Role', Handlers.utils.hasMatchingTag('Action', 'Update-Role
             })
         end
 )
-
-Handlers.add('Count-Profiles', Handlers.utils.hasMatchingTag('Action', 'Count-Profiles'),
-        function(msg)
-            local count_sql = [[
-                                SELECT COUNT(*)
-                                FROM ao_profile_metadata
-                    ]]
-            local stmt = Db:prepare(count_sql)
-            local result = stmt:step()
-            local count = 0
-
-            if result == sqlite3.ROW then
-                count = stmt:get_value(0)
-            else
-                count = -1
-            end
-
-            ao.send({
-                Target = msg.From,
-                Action = 'Count-Profiles-Success',
-                Tags = {
-                    Status = 'Success',
-                    Message = 'Profiles Counted',
-                },
-                Data = json.encode({ Count = count })
-            })
-            return json.encode({ Count = count })
-        end)
 
 Handlers.add('Read-Metadata', Handlers.utils.hasMatchingTag('Action', 'Read-Metadata'),
         function(msg)
