@@ -1,5 +1,6 @@
 # Zone.Profile Package
 
+## Usage
 ### Write
 
 To set metadata entries in the Zone, send a message with the `Zone-Metadata.Set` action and the appropriate data.
@@ -89,4 +90,20 @@ To retrieve metadata entries from the Zone, send a message with the Zone-Metadat
     }
   }
 }
+```
+
+## Testing
+### AOS CLI Example
+To set metadata entries in the Zone, send a message with the `Zone-Metadata.Set` action and the appropriate data.
+
+```
+.load path/to/bundle.lua
+.editor
+<editor mode> use '.done' to submit or '.cancel' to cancel
+local P = require("@permaweb/zone")
+P.zoneKV:set("tree", "green")
+print(P.zoneKV:get("tree"))
+.done
+RETURNS:
+black
 ```
