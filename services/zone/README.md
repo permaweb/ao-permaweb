@@ -12,33 +12,9 @@
 **Parameters**:
 - `msg`: The message object containing the action and data.
 
-### `Get-Profiles-By-Delegate`
+### `Create-Zone`
 
-**Action**: `Get-Zones-For-User`
-
-**Description**: Retrieves Zone(s) associated with a wallet address.
-
-**Parameters**:
-- `msg`: The message object containing the action and data.
-- `msg.Data`: JSON object containing array of associated zone objects.
-
-**Returns**:
-```json
-{
-  "Target": "<profile_id>",
-  "Action": "Profile-Success",
-  "Tags": {
-    "Status": "Success",
-    "Message": "Associated zones fetched"
-  },
-  "Data": "[{\"ZoneId\": \"some_id\", \"UserId\": \"some_address\", \"Role\": \"Owner\"}]"
-  
-}
-```
-
-### `Create-Profile`
-
-**Action**: `Create-Profile`
+**Action**: `Create-Zone`
 
 **Description**: Creates a new profile in the zone.
 
@@ -49,18 +25,33 @@
 ```json
 {
   "Target": "<profile_id>",
-  "Action": "Profile-Success",
-  "Tags": {
-    "Status": "Success",
-    "Message": "Associated profiles fetched"
-  },
+  "Action": "Zone-Created-Success"
+}
+```
+
+### `Get-Profiles-By-Delegate`
+
+**Action**: `Get-Zones-For-User`
+
+**Description**: Retrieves Zone(s) associated with a wallet address.
+
+**Parameters**:
+- `msg`: The message object containing the action and data.
+- `msg.Data`: `"{\"Address\": \"<some_wallet>\"}"`
+
+**Returns**:
+```json
+{
+  "Target": "<profile_id>",
+  "Action": "Zone-Fetch-Success",
   "Data": "[{\"ZoneId\": \"some_id\", \"UserId\": \"some_address\", \"Role\": \"Owner\"}]"
 }
 ```
 
-### `Update-Profile`
 
-**Action**: `Update-Profile`
+### `Update Profile Metadata`
+
+**Action**: `Zone-Metadata.Set`
 
 **Description**: Updates an existing profile in the zone.
 
@@ -68,9 +59,9 @@
 - `msg`: The message object containing the action and data.
 - `msg.Data`: JSON object containing updated profile details.
 
-### `Update-Role`
+### `Update Zone Role`
 
-**Action**: `Update-Role`
+**Action**: `Zone-Role.Set`
 
 **Description**: Updates the role of a delegate for a profile.
 

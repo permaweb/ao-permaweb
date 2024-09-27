@@ -1,24 +1,24 @@
 local json = require('json')
 local sqlite3 = require('lsqlite3')
 
--- primary registry should keep a list of wallet/profile-id pairs
+-- primary registry should keep a list of wallet/zone-id pairs
 Db = Db or sqlite3.open_memory()
 
 -- we have roles on who can do things, for now only owner used
 local HandlerRoles = {
     ['Zone-Metadata.Set'] = {'Owner', 'Admin'},
-    ['Zone.Update-Role'] = {'Owner', 'Admin'},
-    -- legacy:
-    ['Update-Profile'] = {'Owner', 'Admin'},
-    ['Add-Uploaded-Asset'] = {'Owner', 'Admin', 'Contributor'},
-    ['Add-Collection'] = {'Owner', 'Admin', 'Contributor'},
-    ['Update-Collection-Sort'] = {'Owner', 'Admin'},
-    ['Transfer'] = {'Owner', 'Admin'},
-    ['Debit-Notice'] = {'Owner', 'Admin'},
-    ['Credit-Notice'] = {'Owner', 'Admin'},
-    ['Action-Response'] = {'Owner', 'Admin'},
-    ['Run-Action'] = {'Owner', 'Admin'},
-    ['Proxy-Action'] = {'Owner', 'Admin'},
+    ['Zone-Role.Set'] = {'Owner', 'Admin'},
+    -- legacy handlers:
+    --['Update-Profile'] = {'Owner', 'Admin'},
+    --['Add-Uploaded-Asset'] = {'Owner', 'Admin', 'Contributor'},
+    --['Add-Collection'] = {'Owner', 'Admin', 'Contributor'},
+    --['Update-Collection-Sort'] = {'Owner', 'Admin'},
+    --['Transfer'] = {'Owner', 'Admin'},
+    --['Debit-Notice'] = {'Owner', 'Admin'},
+    --['Credit-Notice'] = {'Owner', 'Admin'},
+    --['Action-Response'] = {'Owner', 'Admin'},
+    --['Run-Action'] = {'Owner', 'Admin'},
+    --['Proxy-Action'] = {'Owner', 'Admin'},
 }
 
 -- a table storing a mapping from registry addresses to actions that should be forwarded
@@ -56,7 +56,6 @@ local function is_authorized(zone_id, user_id, roles)
     stmt:finalize()
     return authorized
 end
-
 
 local function handle_subscribe(msg)
     -- registry owner can subscribe downstream registries to actions
@@ -119,7 +118,7 @@ local function handle_forward(msg)
     ao.assign({Processes = assignTargets, Message = msg.Id})
 end
 
--- on spawn, tag Action = Create-Zone initializes profileId and owner
+-- on spawn, Action = Create-Zone, initializes owner role for userid on zoneId
 -- make sure spawn is the correct type of thing
 local function handle_create_zone(msg)
     local reply_to = msg.From
@@ -194,8 +193,7 @@ local function handle_prepare_db(msg)
                     zone_id TEXT NOT NULL,
                     user_id TEXT NOT NULL,
                     role TEXT NOT NULL,
-                    PRIMARY KEY (zone_id, user_id),
-                    FOREIGN KEY (zone_id) REFERENCES ao_profile_metadata (id) ON DELETE CASCADE
+                    PRIMARY KEY (zone_id, user_id)
                 );
             ]]
 
@@ -321,7 +319,7 @@ Handlers.add('Get-Zones-For-User', Handlers.utils.hasMatchingTag('Action', 'Get-
                     return
                 end
 
-                local associated_profiles = {}
+                local associated_zones = {}
 
                 local authorization_lookup = Db:prepare([[
                     SELECT zone_id, user_id, role
@@ -332,7 +330,7 @@ Handlers.add('Get-Zones-For-User', Handlers.utils.hasMatchingTag('Action', 'Get-
                 authorization_lookup:bind_values(data.Address)
 
                 for row in authorization_lookup:nrows() do
-                    table.insert(associated_profiles, {
+                    table.insert(associated_zones, {
                         ZoneId = row.zone_id,
                         Address = row.user_id,
                         Role = row.role
@@ -341,15 +339,15 @@ Handlers.add('Get-Zones-For-User', Handlers.utils.hasMatchingTag('Action', 'Get-
 
                 authorization_lookup:finalize()
 
-                if #associated_profiles > 0 then
+                if #associated_zones > 0 then
                     ao.send({
                         Target = msg.From,
                         Action = 'Profile-Success',
                         Tags = {
                             Status = 'Success',
-                            Message = 'Associated profiles fetched'
+                            Message = 'Associated zones fetched'
                         },
-                        Data = json.encode(associated_profiles)
+                        Data = json.encode(associated_zones)
                     })
                 else
                     ao.send({
@@ -357,7 +355,7 @@ Handlers.add('Get-Zones-For-User', Handlers.utils.hasMatchingTag('Action', 'Get-
                         Action = 'Profile-Error',
                         Tags = {
                             Status = 'Error',
-                            Message = 'This wallet address is not associated with a profile'
+                            Message = 'This wallet address is not associated with a zone'
                         }
                     })
                 end
@@ -375,16 +373,14 @@ Handlers.add('Get-Zones-For-User', Handlers.utils.hasMatchingTag('Action', 'Get-
             end
         end)
 
--- Create-Profile Handler (Original spawned profile message)
+-- Create-Profile Handler: (assigned from original zone spawn message)
 Handlers.add('Create-Zone', Handlers.utils.hasMatchingTag('Action', 'Create-Zone'),
         handle_create_zone )
 
--- Update-Profile Handler
 Handlers.add('Zone-Metadata.Set', Handlers.utils.hasMatchingTag('Action', 'Zone-Metadata.Set'),
         handle_forward)
 
--- Data - { Id, Op, Role? } -- not used
-Handlers.add('Zone.Update-Role', Handlers.utils.hasMatchingTag('Action', 'Zone.Update-Role'),
+Handlers.add('Zone-Role.Set', Handlers.utils.hasMatchingTag('Action', 'Zone-Role.Set'),
         handle_update_role
 )
 
@@ -405,7 +401,7 @@ Handlers.add('Read-Auth', Handlers.utils.hasMatchingTag('Action', 'Read-Auth'),
                         CallerAddress = row.user_id,
                         Role = row.role,
                     })
-                    string = string .. "ProfileId: " .. row.zone_id .. " UserId: " .. row.user_id .. " Role: " .. row.role .. "\n"
+                    string = string .. "ZoneId: " .. row.zone_id .. " UserId: " .. row.user_id .. " Role: " .. row.role .. "\n"
                 end
             end)
             if not status then
