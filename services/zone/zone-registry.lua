@@ -5,9 +5,20 @@ local sqlite3 = require('lsqlite3')
 Db = Db or sqlite3.open_memory()
 
 -- we have roles on who can do things, for now only owner used
+-- registry handlers
+local H_ADD_SUBSCRIBER = "Add-Subscriber"
+local H_READ_AUTH = "Read-Auth"
+local H_GET_USER_ZONES = "Get-Zones-For-User"
+local H_PREPARE_DB = "Prepare-Database"
+
+-- handlers to be forwarded
+local H_META_SET = "Zone-Metadata.Set"
+local H_ROLE_SET = "Zone-Role.Set"
+local H_CREATE_ZONE = "Create-Zone"
+
 local HandlerRoles = {
-    ['Zone-Metadata.Set'] = {'Owner', 'Admin'},
-    ['Zone-Role.Set'] = {'Owner', 'Admin'},
+    [H_META_SET] = {'Owner', 'Admin'},
+    [H_ROLE_SET] = {'Owner', 'Admin'},
     -- legacy handlers:
     --['Update-Profile'] = {'Owner', 'Admin'},
     --['Add-Uploaded-Asset'] = {'Owner', 'Admin', 'Contributor'},
@@ -298,11 +309,11 @@ local function handle_update_role(msg)
     })
 end
 
-Handlers.add('Prepare-Database', Handlers.utils.hasMatchingTag('Action', 'Prepare-Database'),
+Handlers.add(H_PREPARE_DB, Handlers.utils.hasMatchingTag('Action', H_PREPARE_DB),
         handle_prepare_db)
 
 -- Data - { Address }
-Handlers.add('Get-Zones-For-User', Handlers.utils.hasMatchingTag('Action', 'Get-Zones-For-User'),
+Handlers.add(H_GET_USER_ZONES, Handlers.utils.hasMatchingTag('Action', H_GET_USER_ZONES),
         function(msg)
             local decode_check, data = decode_message_data(msg.Data)
 
@@ -374,21 +385,19 @@ Handlers.add('Get-Zones-For-User', Handlers.utils.hasMatchingTag('Action', 'Get-
         end)
 
 -- Create-Profile Handler: (assigned from original zone spawn message)
-Handlers.add('Create-Zone', Handlers.utils.hasMatchingTag('Action', 'Create-Zone'),
+Handlers.add(H_CREATE_ZONE, Handlers.utils.hasMatchingTag('Action', H_CREATE_ZONE),
         handle_create_zone )
 
-Handlers.add('Zone-Metadata.Set', Handlers.utils.hasMatchingTag('Action', 'Zone-Metadata.Set'),
+Handlers.add(H_META_SET, Handlers.utils.hasMatchingTag('Action', H_META_SET),
         handle_forward)
 
-Handlers.add('Zone-Role.Set', Handlers.utils.hasMatchingTag('Action', 'Zone-Role.Set'),
-        handle_update_role
-)
+Handlers.add(H_ROLE_SET, Handlers.utils.hasMatchingTag('Action', H_ROLE_SET),
+        handle_update_role)
 
-Handlers.add('Add-Subscriber', Handlers.utils.hasMatchingTag('Action', 'Add-Subscriber'),
-        handle_subscribe
-)
+Handlers.add(H_ADD_SUBSCRIBER, Handlers.utils.hasMatchingTag('Action', H_ADD_SUBSCRIBER),
+        handle_subscribe)
 
-Handlers.add('Read-Auth', Handlers.utils.hasMatchingTag('Action', 'Read-Auth'),
+Handlers.add(H_READ_AUTH, Handlers.utils.hasMatchingTag('Action', H_READ_AUTH),
         function(msg)
             local metadata = {}
             local string = ''

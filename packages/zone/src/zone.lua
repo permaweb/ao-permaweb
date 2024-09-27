@@ -22,13 +22,18 @@ if not Zone then Zone = {} end
 if not Zone.zoneKV then Zone.zoneKV = KV.new({BatchPlugin}) end
 if not ZoneInitCompleted then ZoneInitCompleted = false end
 local REGISTRY = ""
+-- handlers to be forwarded
+local H_META_SET = "Zone-Metadata.Set"
+local H_ROLE_SET = "Zone-Role.Set"
+local H_CREATE_ZONE = "Create-Zone"
 
 -- handlers
-Zone.ZONE_M_SET = "Zone-Metadata.Set"
-Zone.ZONE_M_GET = "Zone-Metadata.Get"
-Zone.ZONE_M_ERROR = "Zone-Metadata.Error"
-Zone.ZONE_M_SUCCESS = "Zone-Metadata.Success"
-Zone.ZONE_INFO = "Zone-Info"
+Zone.H_META_SET = H_META_SET
+Zone.H_ROLE_SET = H_ROLE_SET
+Zone.H_META_GET = "Zone-Metadata.Get"
+Zone.H_META_ERROR = "Zone-Metadata.Error"
+Zone.H_META_SUCCESS = "Zone-Metadata.Success"
+Zone.H_INFO = "Zone-Info"
 
 function Zone.decodeMessageData(data)
     local status, decodedData = pcall(json.decode, data)
@@ -55,7 +60,7 @@ function Zone.zoneSet(msg)
     if Zone.isAuthorized(msg) ~= true then
         ao.send({
             Target = msg.From,
-            Action = Zone.ZONE_M_ERROR,
+            Action = Zone.H_META_ERROR,
             Tags = {
                 Status = 'Error',
                 Message =
@@ -68,7 +73,7 @@ function Zone.zoneSet(msg)
     if not decodeCheck then
         ao.send({
             Target = msg.From,
-            Action = Zone.ZONE_M_ERROR,
+            Action = Zone.H_META_ERROR,
             Tags = {
                 Status = 'Error',
                 Message =
@@ -91,7 +96,7 @@ function Zone.zoneSet(msg)
         end
         ao.send({
             Target = msg.From,
-            Action = Zone.ZONE_M_SUCCESS,
+            Action = Zone.H_META_SUCCESS,
             Tags =  {
                 Value1 = Zone.zoneKV:get(testkeys[1]),
                 Key1 = testkeys[1]
@@ -108,7 +113,7 @@ function Zone.zoneGet(msg)
     if not decodeCheck then
         ao.send({
             Target = msg.From,
-            Action = Zone.ZONE_M_ERROR,
+            Action = Zone.H_META_ERROR,
             Tags = {
                 Status = 'Error',
                 Message =
@@ -131,22 +136,22 @@ function Zone.zoneGet(msg)
         end
         ao.send({
             Target = msg.From,
-            Action = Zone.ZONE_M_SUCCESS,
+            Action = Zone.H_META_SUCCESS,
             Data = json.encode({Results = results} )
         })
     end
 end
 
---Handlers.remove(Zone.ZONE_M_SET)
+--Handlers.remove(Zone.H_META_SET)
 Handlers.add(
-        Zone.ZONE_M_SET,
-        Handlers.utils.hasMatchingTag("Action", Zone.ZONE_M_SET),
+        Zone.H_META_SET,
+        Handlers.utils.hasMatchingTag("Action", Zone.H_META_SET),
         Zone.zoneSet
 )
---Handlers.remove(Zone.ZONE_M_GET)
+--Handlers.remove(Zone.H_META_GET)
 Handlers.add(
-        Zone.ZONE_M_GET,
-        Handlers.utils.hasMatchingTag("Action", Zone.ZONE_M_GET),
+        Zone.H_META_GET,
+        Handlers.utils.hasMatchingTag("Action", Zone.H_META_GET),
         Zone.zoneGet
 )
 if not ZoneInitCompleted then
