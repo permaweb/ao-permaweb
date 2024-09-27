@@ -14,9 +14,9 @@
 
 ### `Get-Profiles-By-Delegate`
 
-**Action**: `Get-Profiles-By-Delegate`
+**Action**: `Get-Zones-For-User`
 
-**Description**: Retrieves profiles associated with a delegate address.
+**Description**: Retrieves Zone(s) associated with a wallet address.
 
 **Parameters**:
 - `msg`: The message object containing the action and data.
@@ -29,7 +29,7 @@
   "Action": "Profile-Success",
   "Tags": {
     "Status": "Success",
-    "Message": "Associated profiles fetched"
+    "Message": "Associated zones fetched"
   },
   "Data": "[{\"ZoneId\": \"some_id\", \"UserId\": \"some_address\", \"Role\": \"Owner\"}]"
   

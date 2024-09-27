@@ -304,7 +304,7 @@ Handlers.add('Prepare-Database', Handlers.utils.hasMatchingTag('Action', 'Prepar
         handle_prepare_db)
 
 -- Data - { Address }
-Handlers.add('Get-Profiles-For-User', Handlers.utils.hasMatchingTag('Action', 'Get-Profiles-For-User'),
+Handlers.add('Get-Zones-For-User', Handlers.utils.hasMatchingTag('Action', 'Get-Zones-For-User'),
         function(msg)
             local decode_check, data = decode_message_data(msg.Data)
 
