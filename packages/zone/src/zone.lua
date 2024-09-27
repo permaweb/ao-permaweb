@@ -20,6 +20,8 @@ end
 
 if not Zone then Zone = {} end
 if not Zone.zoneKV then Zone.zoneKV = KV.new({BatchPlugin}) end
+if not ZoneInitCompleted then ZoneInitCompleted = false end
+local REGISTRY = ""
 
 -- handlers
 Zone.ZONE_M_SET = "Zone-Metadata.Set"
@@ -147,5 +149,9 @@ Handlers.add(
         Handlers.utils.hasMatchingTag("Action", Zone.ZONE_M_GET),
         Zone.zoneGet
 )
+if not ZoneInitCompleted then
+    ao.assign({Processes = { REGISTRY }, Message = ao.Id})
+    ZoneInitCompleted = true
+end
 
 return Zone

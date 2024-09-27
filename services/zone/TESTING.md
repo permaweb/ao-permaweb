@@ -26,4 +26,8 @@ Make sure arconnect is unlocked / have your password ready
 Create a profile in bazar
 
 
-
+# Testing zone registry steps
+- [ ] create process and .load lua
+- [ ] add a registry address to the zone bundle
+- [ ] add 
+- [ ] eval a zone bundle
