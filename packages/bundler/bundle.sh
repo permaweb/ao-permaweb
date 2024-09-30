@@ -14,7 +14,7 @@ FILES=(
     "./trusted.lua"
     "../kv/base/src/kv.lua"
     "../kv/batchplugin/src/batch.lua"
-    "../asset-manager/base/src/asset-manager.lua"
+    "../asset-manager/asset-manager.lua"
     "../zone/src/zone.lua"
 )
 
