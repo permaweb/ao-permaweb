@@ -33,7 +33,7 @@ local function check_valid_address(address)
 end
 
 local function check_valid_update_type(type)
-    return type == 'Add' or type == 'Subtract'
+    return type == 'Add' or type == 'Remove'
 end
 
 local function check_required_args(args, required_args)
@@ -94,7 +94,7 @@ function AssetManager:update(args)
         if args.Type == 'Add' then
             self.assets[asset_index].Quantity = utils.add(self.assets[asset_index].Quantity, balance_result.Data)
         end
-        if args.Type == 'Subtract' then
+        if args.Type == 'Remove' then
             self.assets[asset_index].Quantity = utils.subtract(self.assets[asset_index].Quantity, balance_result.Data)
         end
         self.assets[asset_index].LastUpdate = args.Timestamp
@@ -114,12 +114,22 @@ function AssetManager:update(args)
         else
             print('No asset found to update...')
         end
-        if args.Type == 'Subtract' then
+        if args.Type == 'Remove' then
             print('No asset found to update...')
             return
         end
     end
 end
+
+Handlers.add('Add-Upload', 'Add-Upload', function(msg)
+    if not msg.AssetId then return end
+
+    Zone.assetManager:update({
+        Type = 'Add',
+        AssetId = msg.AssetId,
+        Timestamp = msg.Timestamp
+    })
+end)
 
 package.loaded[AssetManagerPackageName] = AssetManager
 

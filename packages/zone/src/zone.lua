@@ -19,7 +19,8 @@ if package.loaded[PackageName] then
 end
 
 if not Zone then Zone = {} end
-if not Zone.zoneKV then Zone.zoneKV = KV.new({BatchPlugin}) end
+if not Zone.zoneKV then Zone.zoneKV = KV.new({ BatchPlugin }) end
+if not Zone.assetManager then Zone.assetManager = AssetManager.new() end
 if not ZoneInitCompleted then ZoneInitCompleted = false end
 local REGISTRY = "qIiqVc-kVIXRy9jgZYfXfkrMQ83VeZKbixneNUZJr7M"
 -- handlers to be forwarded
@@ -56,7 +57,6 @@ function Zone.hello()
 end
 
 function Zone.zoneSet(msg)
-
     if Zone.isAuthorized(msg) ~= true then
         ao.send({
             Target = msg.From,
@@ -97,7 +97,7 @@ function Zone.zoneSet(msg)
         ao.send({
             Target = msg.From,
             Action = Zone.H_META_SUCCESS,
-            Tags =  {
+            Tags = {
                 Value1 = Zone.zoneKV:get(testkeys[1]),
                 Key1 = testkeys[1]
             },
@@ -108,7 +108,6 @@ function Zone.zoneSet(msg)
 end
 
 function Zone.zoneGet(msg)
-
     local decodeCheck, data = Zone.decodeMessageData(msg.Data)
     if not decodeCheck then
         ao.send({
@@ -137,23 +136,40 @@ function Zone.zoneGet(msg)
         ao.send({
             Target = msg.From,
             Action = Zone.H_META_SUCCESS,
-            Data = json.encode({Results = results} )
+            Data = json.encode({ Results = results })
         })
     end
 end
 
 Handlers.add(
-        Zone.H_META_SET,
-        Handlers.utils.hasMatchingTag("Action", Zone.H_META_SET),
-        Zone.zoneSet
+    Zone.H_META_SET,
+    Handlers.utils.hasMatchingTag("Action", Zone.H_META_SET),
+    Zone.zoneSet
 )
 Handlers.add(
-        Zone.H_META_GET,
-        Handlers.utils.hasMatchingTag("Action", Zone.H_META_GET),
-        Zone.zoneGet
+    Zone.H_META_GET,
+    Handlers.utils.hasMatchingTag("Action", Zone.H_META_GET),
+    Zone.zoneGet
 )
+
+Handlers.add('Credit-Notice', 'Credit-Notice', function(msg)
+    Zone.assetManager:update({
+        Type = 'Add',
+        AssetId = msg.From,
+        Timestamp = msg.Timestamp
+    })
+end)
+
+Handlers.add('Debit-Notice', 'Debit-Notice', function(msg)
+    Zone.assetManager:update({
+        Type = 'Remove',
+        AssetId = msg.From,
+        Timestamp = msg.Timestamp
+    })
+end)
+
 if not ZoneInitCompleted then
-    ao.assign({Processes = { REGISTRY }, Message = ao.id})
+    ao.assign({ Processes = { REGISTRY }, Message = ao.id })
     ZoneInitCompleted = true
 end
 
