@@ -153,7 +153,7 @@ Handlers.add(
         Zone.zoneGet
 )
 if not ZoneInitCompleted then
-    ao.assign({Processes = { REGISTRY }, Message = ao.Id})
+    ao.assign({Processes = { REGISTRY }, Message = ao.id})
     ZoneInitCompleted = true
 end
 

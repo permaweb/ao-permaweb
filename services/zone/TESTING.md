@@ -32,5 +32,6 @@ Create a profile in bazar
 - [ ] add a registry address to the zone bundle
 - [ ] add "first run -> assign spawn to registry to zone"
 - [ ] eval a zone bundle
+- created HkRv9Kjg-atYI6jhcAmSr28P7VAac5YDR8Sb4Bk-_Mc
 - [ ] update zone meta
 - [ ] check zregistry for zone by wallet
