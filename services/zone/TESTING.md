@@ -28,6 +28,9 @@ Create a profile in bazar
 
 # Testing zone registry steps
 - [ ] create process and .load lua
+- `qIiqVc-kVIXRy9jgZYfXfkrMQ83VeZKbixneNUZJr7M`
 - [ ] add a registry address to the zone bundle
-- [ ] add 
+- [ ] add "first run -> assign spawn to registry to zone"
 - [ ] eval a zone bundle
+- [ ] update zone meta
+- [ ] check zregistry for zone by wallet

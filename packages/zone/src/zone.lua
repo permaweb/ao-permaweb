@@ -21,7 +21,7 @@ end
 if not Zone then Zone = {} end
 if not Zone.zoneKV then Zone.zoneKV = KV.new({BatchPlugin}) end
 if not ZoneInitCompleted then ZoneInitCompleted = false end
-local REGISTRY = ""
+local REGISTRY = "qIiqVc-kVIXRy9jgZYfXfkrMQ83VeZKbixneNUZJr7M"
 -- handlers to be forwarded
 local H_META_SET = "Zone-Metadata.Set"
 local H_ROLE_SET = "Zone-Role.Set"
@@ -142,13 +142,11 @@ function Zone.zoneGet(msg)
     end
 end
 
---Handlers.remove(Zone.H_META_SET)
 Handlers.add(
         Zone.H_META_SET,
         Handlers.utils.hasMatchingTag("Action", Zone.H_META_SET),
         Zone.zoneSet
 )
---Handlers.remove(Zone.H_META_GET)
 Handlers.add(
         Zone.H_META_GET,
         Handlers.utils.hasMatchingTag("Action", Zone.H_META_GET),
