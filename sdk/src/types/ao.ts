@@ -33,7 +33,8 @@ export type APIDryRunType = {
 export type APICreateProcessType = {
 	module: string;
 	scheduler: string;
-	tags: TagType[];
+	spawnTags: TagType[];
+	evalTags: TagType[];
 	wallet: any;
 	evalTxid: string;
 	spawnData?: string;

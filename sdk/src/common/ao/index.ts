@@ -232,7 +232,7 @@ export async function aoCreateProcess(args: APICreateProcessType, statusCB?: (st
 			module: args.module,
 			scheduler: args.scheduler,
 			data: args.spawnData,
-			tags: args.tags,
+			tags: args.spawnTags,
 			wallet: args.wallet
 		})
 
@@ -245,7 +245,7 @@ export async function aoCreateProcess(args: APICreateProcessType, statusCB?: (st
 			wallet: args.wallet,
 			action: 'Eval',
 			data: src,
-			tags: args.tags,
+			tags: args.evalTags,
 			useRawData: true,
 		})
 		statusCB && statusCB("Eval sent")

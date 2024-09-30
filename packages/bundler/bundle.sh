@@ -3,7 +3,7 @@
 set -e
 
 # Define the target file
-TARGET_FILE="./dist/bundle-trusted.lua"
+TARGET_FILE="./dist/bundle-test-registry.lua"
 
 # Clear the target file if it exists
 > "$TARGET_FILE"

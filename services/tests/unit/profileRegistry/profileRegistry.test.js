@@ -1,9 +1,12 @@
 import { test } from 'node:test'
 import * as assert from 'node:assert'
-import { SendFactory } from '../../../utils/aos.helper.js'
+import { SendFactory } from '../../utils/aos.helper.js'
 import { inspect } from 'node:util';
 import fs from 'node:fs'
-import {findMessageByTag, getTag, logSendResult} from "../../../utils/message.js";
+import path from 'node:path'
+
+import {findMessageByTag, getTag, logSendResult} from "../../utils/message.js";
+const registryLuaPath = path.resolve('../profiles/registry.lua');
 
 const PROFILE_A_USERNAME = "Steve";
 const PROFILE_B_USERNAME = "Bob";
@@ -13,12 +16,12 @@ const PROFILE_BOB_ID = "PROFILE_B_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
 const STEVE_PROFILE_ID = "PROFILE_A_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
 const STEVE_WALLET = "ADDRESS_A_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
 const BOB_WALLET = "ADDRESS_B_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
-const ANON_WALLET = "ADDRESS_ANON_r2EkkwzIXP5A64QmtME6Bxa8bGmbzI"
+const ANON_WALLET = "ADDRESS_ANON_r2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
 const {Send} = SendFactory({processId: PROFILE_REGISTRY_ID, moduleId: '5555', defaultOwner: ANON_WALLET, defaultFrom: ANON_WALLET});
 test("------------------------------BEGIN TEST------------------------------")
 test("load profileRegistry source", async () => {
     try {
-        const code = fs.readFileSync('./profiles/registry.lua', 'utf-8')
+        const code = fs.readFileSync(registryLuaPath, 'utf-8')
         const result = await Send({ From: REGISTRY_OWNER,
             Owner: REGISTRY_OWNER, Target: PROFILE_REGISTRY_ID, Action: "Eval", Data: code })
         logSendResult(result, "Load Source")
@@ -44,9 +47,9 @@ test("should read all metadata", async () => {
     logSendResult(result, "Read-Metadata")
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
-/*
-    TODO: write a migration test: new lua, migration handler by owner only, supports same methods
- */
+// /*
+//     TODO: write a migration test: new lua, migration handler by owner only, supports same methods
+//  */
 test("STEVE should create profile A in registry from old profile code", async () => {
     // recieve profile data via send from profile
     const inputData = { AuthorizedAddress: STEVE_WALLET, UserName: PROFILE_A_USERNAME, DateCreated: 125555, DateUpdated: 125555 }
@@ -186,4 +189,4 @@ test('should add, update, remove role', async () => {
     )
 })
 
-// TODO add/remove from tables: languages, following, followed, topic-tags, locations, external_links, external_wallets
+// // TODO add/remove from tables: languages, following, followed, topic-tags, locations, external_links, external_wallets
