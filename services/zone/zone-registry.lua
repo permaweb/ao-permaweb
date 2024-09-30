@@ -15,6 +15,9 @@ local H_PREPARE_DB = "Prepare-Database"
 local H_META_SET = "Zone-Metadata.Set"
 local H_ROLE_SET = "Zone-Role.Set"
 local H_CREATE_ZONE = "Create-Zone"
+ao.addAssignable(H_META_SET, { Action = H_META_SET })
+ao.addAssignable(H_ROLE_SET, { Action = H_ROLE_SET })
+ao.addAssignable(H_CREATE_ZONE, { Action = H_CREATE_ZONE })
 
 local HandlerRoles = {
     [H_META_SET] = {'Owner', 'Admin'},
