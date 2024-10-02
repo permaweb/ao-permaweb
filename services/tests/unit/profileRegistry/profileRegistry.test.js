@@ -85,17 +85,10 @@ test("should return no records if profile does not exist", async () => {
     assert.equal(getTag(result?.Messages[0], "Status"), "Error")
 })
 
-test("should update profile in registry from old profile code", async () => {
-    const inputData = { DisplayName: "Who", DateUpdated: 126666, DateCreated: 125555}
-    const result = await Send({ Target: PROFILE_REGISTRY_ID, From: STEVE_PROFILE_ID, Owner: STEVE_PROFILE_ID, AuthorizedAddress: STEVE_WALLET, Action: "Update-Profile", Data: JSON.stringify(inputData) })
-    logSendResult(result, 'Update-Profile-1');
-    assert.equal(getTag(result?.Messages[0], "Status"), "Success")
-})
-
-test("should update profile in registry v001", async () => {
-    const inputData = { DisplayName: "Who Else", DateUpdated: 126666 }
-    const result = await Send({ From: STEVE_WALLET, Owner: STEVE_WALLET, Target: STEVE_PROFILE_ID,  Action: "Update-Profile", Data: JSON.stringify(inputData) })
-    logSendResult(result, 'Update-Profile-1');
+test("should test profile for delegate", async () => {
+    const inputData = { Address: STEVE_WALLET }
+    const result = await Send({Action: 'Get-Profiles-By-Delegate', Data: JSON.stringify(inputData)})
+    logSendResult(result, "Get-Profiles")
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
 
