@@ -18,6 +18,7 @@ local H_CREATE_ZONE = "Create-Zone"
 ao.addAssignable(H_META_SET, { Action = H_META_SET })
 ao.addAssignable(H_ROLE_SET, { Action = H_ROLE_SET })
 ao.addAssignable(H_CREATE_ZONE, { Action = H_CREATE_ZONE })
+ao.addAssignable(H_GET_USER_ZONES, { Action = H_GET_USER_ZONES })
 
 local HandlerRoles = {
     [H_META_SET] = {'Owner', 'Admin'},
