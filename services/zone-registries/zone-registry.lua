@@ -22,7 +22,8 @@ ao.addAssignable(H_GET_USER_ZONES, { Action = H_GET_USER_ZONES })
 
 local HandlerRoles = {
     [H_META_SET] = {'Owner', 'Admin'},
-    [H_ROLE_SET] = {'Owner', 'Admin'},
+    [H_ROLE_SET] = {'Owner'},
+    -- TODO add code to allow Admin to set roles as long as not updating Owner
     -- legacy handlers:
     --['Update-Profile'] = {'Owner', 'Admin'},
     --['Add-Uploaded-Asset'] = {'Owner', 'Admin', 'Contributor'},
@@ -165,6 +166,7 @@ local function handle_create_zone(msg)
         insert_auth:bind_values(ZoneId, UserId, 'Owner')
         insert_auth:step()
         insert_auth:finalize()
+        check:finalize()
     else
         ao.send({
             Target = reply_to,
@@ -175,8 +177,10 @@ local function handle_create_zone(msg)
             },
             Data = { Code = "DECODE_FAILED" }
         })
+        check:finalize()
         return
     end
+
     -- assign to subscribers
     ao.send({
         Target = reply_to,
