@@ -57,7 +57,7 @@ test("meta zone: Bob should create zone in registry", async () => {
     // read the assigned create/update profile methods from user spawn
     const inputData = { DisplayName: PROFILE_B_HANDLE, UserName: PROFILE_B_USERNAME, DateCreated: 125555, DateUpdated: 125555 }
     // simulate the assignement from the spawn tx
-    const result = await Send({ Target: PROFILE_BOB_ID, From: BOB_WALLET, Owner: BOB_WALLET, Action: "Create-Zone", Data: JSON.stringify(inputData) })
+    const result = await Send({ Target: PROFILE_BOB_ID, From: BOB_WALLET, Owner: BOB_WALLET, Action: "Create-Zone", Data: JSON.stringify(inputData) }, { messageId: PROFILE_BOB_ID})
     logSendResult(result, 'Create-Profile-B');
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
@@ -66,6 +66,13 @@ test("meta zone: should find Bob's zone roles", async () => {
     const inputData = { Address: BOB_WALLET }
     const result = await Send({Action: "Get-Zones-For-User", Data: JSON.stringify(inputData)})
     logSendResult(result, "Find-Bob-Zone")
+    assert.equal(getTag(result?.Messages[0], "Status"), "Success")
+})
+
+test("meta zone: should find Bob's metadata", async () => {
+    const inputData = { ZoneIds: [PROFILE_BOB_ID] }
+    const result = await Send({Action: "Get-Zones-Metadata", Data: JSON.stringify(inputData)})
+    logSendResult(result, "Get-Zones")
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
 

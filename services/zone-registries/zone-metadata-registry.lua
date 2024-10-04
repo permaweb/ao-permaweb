@@ -20,6 +20,7 @@ ao.addAssignable(H_META_SET, { Action = H_META_SET })
 ao.addAssignable(H_ROLE_SET, { Action = H_ROLE_SET })
 ao.addAssignable(H_CREATE_ZONE, { Action = H_CREATE_ZONE })
 ao.addAssignable(H_GET_USER_ZONES, { Action = H_GET_USER_ZONES })
+ao.addAssignable(H_GET_ZONES_METADATA, { Action = H_GET_ZONES_METADATA })
 
 local HandlerRoles = {
     [H_META_SET] = {'Owner', 'Admin'},
@@ -654,8 +655,8 @@ Handlers.add(H_META_SET, Handlers.utils.hasMatchingTag('Action', H_META_SET),
 
 Handlers.add(H_ROLE_SET, Handlers.utils.hasMatchingTag('Action', H_ROLE_SET),
         handle_update_role)
-
-Handlers.add(H_META_GET, Handlers.utils.hasMatchingTag('Action', H_META_SET),
+-- H_GET_ZONES_METADATA
+Handlers.add(H_GET_ZONES_METADATA, Handlers.utils.hasMatchingTag('Action', H_GET_ZONES_METADATA),
         handle_meta_get)
 
 Handlers.add(H_READ_AUTH, Handlers.utils.hasMatchingTag('Action', H_READ_AUTH),

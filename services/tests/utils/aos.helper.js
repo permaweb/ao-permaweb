@@ -7,16 +7,17 @@ const wasmFormat = process.env.FORMAT || 'wasm32-unknown-emscripten'
 export function SendFactory(envConfig = {}, format = wasmFormat, wasmFile = wasmModuleFile, ) {
     const aos = fs.readFileSync(wasmFile)
     let memory = null
-    const Send = async function Send(DataItem) {
+    const Send = async function Send(DataItem, messageConfig = {}) {
+
         const { Tags = {}, ...Rest } = DataItem;
         const msg = Object.keys(Rest).reduce(function (di, k) {
-        if (di[k]) {
-            di[k] = Rest[k]
-        } else {
-            di.Tags = di.Tags.concat([{ name: k, value: Rest[k] }])
-        }
-        return di
-        }, createMsg(envConfig))
+            if (di[k]) {
+                di[k] = Rest[k]
+            } else {
+                di.Tags = di.Tags.concat([{ name: k, value: Rest[k] }])
+            }
+            return di
+        }, createMsg(envConfig, messageConfig))
         Object.entries(Tags).forEach(t => {
             const k = t[0];
             const v = t[1];
@@ -43,10 +44,11 @@ function getTimestamp() {
   console.log(Date.now())
   return 1000000 + increment++;
 }
-function createMsg(env) {
+function createMsg(env, messageConfig ) {
     const { moduleId, defaultOwner, defaultFrom } = env || {}
+    const { messageId } = messageConfig || {};
   return {
-    Id: '1234',
+    Id: messageId || "1234",
     Target: 'AOS',
     Owner: defaultOwner || 'FROMOWNER',
     From: defaultFrom || 'FROMOWNER',
