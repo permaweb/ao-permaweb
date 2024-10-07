@@ -16,11 +16,21 @@ local H_META_SET = "Zone-Metadata.Set"
 local H_META_GET = "Zone-Metadata.Get"
 local H_ROLE_SET = "Zone-Role.Set"
 local H_CREATE_ZONE = "Create-Zone"
-ao.addAssignable(H_META_SET, { Action = H_META_SET })
-ao.addAssignable(H_ROLE_SET, { Action = H_ROLE_SET })
-ao.addAssignable(H_CREATE_ZONE, { Action = H_CREATE_ZONE })
-ao.addAssignable(H_GET_USER_ZONES, { Action = H_GET_USER_ZONES })
-ao.addAssignable(H_GET_ZONES_METADATA, { Action = H_GET_ZONES_METADATA })
+
+local ASSIGNABLES = {
+    H_META_SET, H_ROLE_SET, H_CREATE_ZONE, H_GET_USER_ZONES, H_GET_ZONES_METADATA
+}
+
+local function match_assignable_actions(a)
+    -- return a is in ASSIGNABLES
+    for _, v in ipairs(ASSIGNABLES) do
+        if a == v then
+            return true
+        end
+    end
+end
+
+ao.addAssignable("AssignableActions", { Action = function(a) return match_assignable_actions(a) end } )
 
 local HandlerRoles = {
     [H_META_SET] = {'Owner', 'Admin'},
@@ -347,7 +357,7 @@ local function handle_update_role(msg)
             Status = 'Success',
             Message = 'Auth Record Success'
         },
-        Data = json.encode({ ProfileId = zone_id, DelegateAddress = Id, Role = Role })
+        Data = json.encode({ ZoneId = zone_id, Address = Id, Role = Role })
     })
 end
 
@@ -454,7 +464,7 @@ local function handle_meta_get(msg)
     end
 end
 
--- assignment of message from authorized wallet to profile_id
+-- assignment of message from authorized wallet to zone_id
 local function handle_meta_set(msg)
     local reply_to = msg.From
     local decode_check, data = decode_message_data(msg.Data)
@@ -492,18 +502,18 @@ local function handle_meta_set(msg)
     local placeholders = {}
     local params = {}
     local metadataValues = {
-        id = ZoneId,
         username = data.UserName or nil,
         profile_image = data.ProfileImage or nil,
         cover_image = data.CoverImage or nil,
         description = data.Description or nil,
         display_name = data.DisplayName or nil,
-        date_updated = msg.Timestamp,
-        date_created = msg.Timestamp
+        date_updated = data.DateUpdated
     }
-    local function generateInsertQuery()
+
+    local function generateUpdateQuery()
+        -- first create setclauses for everything but id
         for key, val in pairs(metadataValues) do
-            if val ~= nil then
+            if val ~= nil and val ~= 'id' then
                 -- Include the field if provided
                 table.insert(columns, key)
                 if val == "" then
@@ -514,21 +524,20 @@ local function handle_meta_set(msg)
                     table.insert(placeholders, "?")
                     table.insert(params, val)
                 end
-            else
-                -- If field is nil and not mandatory, insert NULL
-                if key ~= "id" then
-                    table.insert(columns, key)
-                    table.insert(placeholders, "NULL")
-                end
             end
         end
-
-        local sql = "INSERT INTO ao_zone_metadata (" .. table.concat(columns, ", ") .. ")"
-        sql = sql .. " VALUES (" .. table.concat(placeholders, ", ") .. ")"
-
+        -- now build querystring
+        local sql = "UPDATE ao_zone_metadata SET "
+        for i, _ in ipairs(columns) do
+            sql = sql .. columns[i] .. " = " .. placeholders[i]
+            if i ~= #columns then
+                sql = sql .. ","
+            end
+        end
+        sql = sql .. " WHERE id = ?"
         return sql
     end
-    local sql = generateInsertQuery()
+    local sql = generateUpdateQuery()
     local stmt = Db:prepare(sql)
 
     if not stmt then
@@ -539,16 +548,17 @@ local function handle_meta_set(msg)
                 Status = 'DB_PREPARE_FAILED',
                 Message = "DB PREPARED QUERY FAILED"
             },
-            Data = { Code = "Failed to prepare insert statement",
+            Data = { Code = "Failed to prepare update statement",
                      SQL = sql,
                      ERROR = Db:errmsg()
             }
         })
-        print("Failed to prepare insert statement")
+        print("Failed to prepare update statement")
         return json.encode({ Code = 'DB_PREPARE_FAILED' })
     end
 
-    -- bind values for INSERT statement
+    -- add id last
+    table.insert(params, ZoneId)
     stmt:bind_values(table.unpack(params))
 
     local step_status = stmt:step()
@@ -568,6 +578,15 @@ local function handle_meta_set(msg)
         return json.encode({ Code = step_status })
     end
     stmt:finalize()
+    ao.send({
+        Target = zone_id,
+        Action = 'Success',
+        Tags = {
+            Status = 'Success',
+            Message = 'Metadata Record Success'
+        },
+        Data = json.encode({ ZoneId = zone_id, DelegateAddress = Id, Role = Role })
+    })
     return
 end
 
@@ -668,8 +687,8 @@ Handlers.add(H_READ_AUTH, Handlers.utils.hasMatchingTag('Action', H_READ_AUTH),
                 for row in Db:nrows('SELECT zone_id, user_id, role FROM zone_auth') do
                     foundRows = true
                     table.insert(metadata, {
-                        ProfileId = row.zone_id,
-                        CallerAddress = row.user_id,
+                        ZoneId = row.zone_id,
+                        UserId = row.user_id,
                         Role = row.role,
                     })
                     string = string .. "ZoneId: " .. row.zone_id .. " UserId: " .. row.user_id .. " Role: " .. row.role .. "\n"

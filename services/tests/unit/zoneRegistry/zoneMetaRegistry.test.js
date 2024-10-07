@@ -72,7 +72,26 @@ test("meta zone: should find Bob's zone roles", async () => {
 test("meta zone: should find Bob's metadata", async () => {
     const inputData = { ZoneIds: [PROFILE_BOB_ID] }
     const result = await Send({Action: "Get-Zones-Metadata", Data: JSON.stringify(inputData)})
-    logSendResult(result, "Get-Zones")
+    logSendResult(result, "Get-Zones: Bob")
+    assert.equal(getTag(result?.Messages[0], "Status"), "Success")
+})
+
+test("meta zone: should set Bob's metadata", async () => {
+    const inputData = {
+        CoverImage: "some.png", DateUpdated: 125556 }
+
+    const result = await Send({Action: "Zone-Metadata.Set",
+        From: BOB_WALLET,
+        Owner: BOB_WALLET,
+        Target: PROFILE_BOB_ID, Data: JSON.stringify(inputData)})
+    logSendResult(result, "Zone-Metadata.Set")
+    assert.equal(getTag(result?.Messages[0], "Status"), "Success")
+})
+
+test("meta zone: should find Bob's new metadata", async () => {
+    const inputData = { ZoneIds: [PROFILE_BOB_ID] }
+    const result = await Send({Action: "Get-Zones-Metadata", Data: JSON.stringify(inputData)})
+    logSendResult(result, "Get-Zones: Bob")
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
 

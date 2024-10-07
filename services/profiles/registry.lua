@@ -50,39 +50,6 @@ local function is_authorized(profile_id, user_id, roles)
     return authorized
 end
 
-
-local function handle_prepare_db(msg)
-    if msg.From ~= Owner and msg.From ~= ao.id then
-        ao.send({
-            Target = msg.From,
-            Action = 'Authorization-Error',
-            Tags = {
-                Status = 'Error',
-                Message = 'Unauthorized to access this handler'
-            }
-        })
-        return
-    end
-
-    Db:exec [[
-                CREATE TABLE IF NOT EXISTS zone_auth (
-                    zone_id TEXT NOT NULL,
-                    user_id TEXT NOT NULL,
-                    role TEXT NOT NULL,
-                    PRIMARY KEY (zone_id, user_id)
-                );
-            ]]
-
-    ao.send({
-        Target = Owner,
-        Action = 'DB-Init-Success',
-        Tags = {
-            Status = 'Success',
-            Message = 'Created DB'
-        }
-    })
-end
-
 local function handle_update_role(msg)
     local decode_check, data = decode_message_data(msg.Data)
     local zone_id = msg.Target
@@ -399,10 +366,10 @@ Handlers.add('Prepare-Database', Handlers.utils.hasMatchingTag('Action', 'Prepar
 
             Db:exec [[
                 CREATE TABLE IF NOT EXISTS ao_profile_authorization (
-                    zone_id TEXT NOT NULL,
-                    user_id TEXT NOT NULL,
+                    profile_id TEXT NOT NULL,
+                    delegate_address TEXT NOT NULL,
                     role TEXT NOT NULL,
-                    PRIMARY KEY (zone_id, user_id)
+                    PRIMARY KEY (profile_id, delegate_address),
                     FOREIGN KEY (profile_id) REFERENCES ao_profile_metadata (id) ON DELETE CASCADE
                 );
             ]]
