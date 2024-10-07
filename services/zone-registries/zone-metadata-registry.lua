@@ -22,7 +22,6 @@ local ASSIGNABLES = {
 }
 
 local function match_assignable_actions(a)
-    -- return a is in ASSIGNABLES
     for _, v in ipairs(ASSIGNABLES) do
         if a == v then
             return true
