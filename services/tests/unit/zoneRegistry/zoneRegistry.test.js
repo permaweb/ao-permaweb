@@ -4,7 +4,6 @@ import { SendFactory } from '../../utils/aos.helper.js'
 import fs from 'node:fs'
 import path from 'node:path'
 
-
 import {getTag, logSendResult} from "../../utils/message.js";
 const registryLuaPath = path.resolve('../zone-registries/zone-registry.lua');
 const PROFILE_REGISTRY_ID = 'dWdBohXUJ22rfb8sSChdFh6oXJzbAtGe4tC6__52Zk4';

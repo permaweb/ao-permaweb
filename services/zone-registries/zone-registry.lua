@@ -15,10 +15,21 @@ local H_PREPARE_DB = "Prepare-Database"
 local H_META_SET = "Zone-Metadata.Set"
 local H_ROLE_SET = "Zone-Role.Set"
 local H_CREATE_ZONE = "Create-Zone"
-ao.addAssignable(H_META_SET, { Action = H_META_SET })
-ao.addAssignable(H_ROLE_SET, { Action = H_ROLE_SET })
-ao.addAssignable(H_CREATE_ZONE, { Action = H_CREATE_ZONE })
-ao.addAssignable(H_GET_USER_ZONES, { Action = H_GET_USER_ZONES })
+
+local ASSIGNABLES = {
+    H_META_SET, H_ROLE_SET, H_CREATE_ZONE, H_GET_USER_ZONES
+}
+
+local function match_assignable_actions(a)
+    -- return a is in ASSIGNABLES
+    for _, v in ipairs(ASSIGNABLES) do
+        if a == v then
+            return true
+        end
+    end
+end
+
+ao.addAssignable("AssignableActions", { Action = function(a) return match_assignable_actions(a) end } )
 
 local HandlerRoles = {
     [H_META_SET] = {'Owner', 'Admin'},
