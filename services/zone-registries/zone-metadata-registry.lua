@@ -104,7 +104,7 @@ local function handle_create_zone(msg)
     else
         ao.send({
             Target = reply_to,
-            Action = 'ERROR',
+            Action = 'Zone-Create-Notice',
             Tags = {
                 Status = 'ERROR',
                 Message = "Zone already found, cannot insert"
@@ -180,7 +180,7 @@ local function handle_create_zone(msg)
     if not bindres then
         ao.send({
             Target = reply_to,
-            Action = 'DB_CODE',
+            Action = 'Zone-Create-Notice',
             Tags = {
                 Status = 'DB_PREPARE_FAILED',
                 Message = "DB BIND QUERY FAILED"

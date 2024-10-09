@@ -57,6 +57,8 @@ local function decode_message_data(data)
     return true, decoded_data
 end
 
+
+
 local function is_authorized(zone_id, user_id, roles)
     if not zone_id then
         return false

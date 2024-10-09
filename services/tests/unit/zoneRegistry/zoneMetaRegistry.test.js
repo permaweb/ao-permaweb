@@ -8,7 +8,6 @@ import path from 'node:path'
 import {getTag, logSendResult} from "../../utils/message.js";
 const registryLuaPath = path.resolve('../zone-registries/zone-metadata-registry.lua');
 
-
 const PROFILE_REGISTRY_ID = 'dWdBohXUJ22rfb8sSChdFh6oXJzbAtGe4tC6__52Zk4';
 const REGISTRY_OWNER = "ADDRESS_R_CZLr2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
 const ANON_WALLET = "ADDRESS_ANON_r2EkkwzIXP5A64QmtME6Bxa8bGmbzI";
@@ -94,4 +93,3 @@ test("meta zone: should find Bob's new metadata", async () => {
     logSendResult(result, "Get-Zones: Bob")
     assert.equal(getTag(result?.Messages[0], "Status"), "Success")
 })
-
