@@ -45,12 +45,24 @@ export async function aoDryRun(args: APIDryRunType): Promise<any> {
 	try {
 		const tags = [{ name: 'Action', value: args.action }];
 		if (args.tags) tags.push(...args.tags);
-		let data = JSON.stringify(args.data || {});
+		let dataPayload;
+		if (typeof(args.data) === "object") {
+			dataPayload = JSON.stringify(args.data || {});
+		} else if (typeof(args.data) === "string") {
+			// try to parse json and throw an error if it can't
+			try {
+				const jsonresult = JSON.parse(args.data)
+			} catch (e) {
+				console.error(e);
+				throw new Error("Invalid JSON data");
+			}
+			dataPayload = args.data;
+		}
 
 		const response = await dryrun({
 			process: args.processId,
 			tags: tags,
-			data: data,
+			data: dataPayload,
 		});
 
 		if (response.Messages && response.Messages.length) {

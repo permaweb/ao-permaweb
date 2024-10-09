@@ -27,7 +27,7 @@ export type APIDryRunType = {
 	processId: string;
 	action: string;
 	tags?: TagType[] | null;
-	data?: string | null;
+	data?: string | object;
 };
 
 export type APICreateProcessType = {

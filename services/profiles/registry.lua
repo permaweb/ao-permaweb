@@ -50,6 +50,98 @@ local function is_authorized(profile_id, user_id, roles)
     return authorized
 end
 
+local function handle_update_role(msg)
+    local decode_check, data = decode_message_data(msg.Data)
+    local zone_id = msg.Target
+    local user_id = msg.From
+    if decode_check and data then
+        if not data.Id or not data.Op then
+            ao.send({
+                Target = zone_id,
+                Action = 'Input-Error',
+                Tags = {
+                    Status = 'Error',
+                    Message = 'Invalid arguments, required { Id, Op, Role }'
+                }
+            })
+            return
+        end
+    end
+
+    if not is_authorized(zone_id, user_id, HandlerRoles['Zone.Update-Role']) then
+        ao.send({
+            Target = zone_id,
+            Action = 'Authorization-Error',
+            Tags = {
+                Status = 'Error',
+                Message = 'Unauthorized to access this handler'
+            }
+        })
+        return
+    end
+
+    local Id = data.Id or msg.Tags.Id
+    local Role = data.Role or msg.Tags.Role
+    local Op = data.Op or msg.Tags.Op
+
+    if not Id or not Op then
+        ao.send({
+            Target = zone_id,
+            Action = 'Input-Error',
+            Tags = {
+                Status = 'Error',
+                Message =
+                'Invalid arguments, required { Id, Op } in data or tags'
+            }
+        })
+        return
+    end
+    -- handle add, update, or remove Ops
+    local stmt
+    if data.Op == 'Add' then
+        stmt = Db:prepare(
+                'INSERT INTO zone_auth (zone_id, user_id, role) VALUES (?, ?, ?)')
+        stmt:bind_values(zone_id, Id, Role)
+
+    elseif data.Op == 'Update' then
+        stmt = Db:prepare(
+                'UPDATE zone_auth SET role = ? WHERE zone_id = ? AND user_id = ?')
+        stmt:bind_values(Role, zone_id, Id)
+
+    elseif data.Op == 'Delete' then
+        stmt = Db:prepare(
+                'DELETE FROM zone_auth WHERE zone_id = ? AND user_id = ?')
+        stmt:bind_values(zone_id, Id)
+    end
+
+    local step_status = stmt:step()
+    stmt:finalize()
+    if step_status ~= sqlite3.OK and step_status ~= sqlite3.DONE and step_status ~= sqlite3.ROW then
+        print("Error: " .. Db:errmsg())
+        ao.send({
+            Target = zone_id,
+            Action = 'DB_STEP_CODE',
+            Tags = {
+                Status = 'ERROR',
+                Message = 'sqlite step error'
+            },
+            Data = { DB_STEP_MSG = step_status }
+        })
+        return json.encode({ Code = step_status })
+    end
+
+    ao.send({
+        Target = zone_id,
+        Action = 'Success',
+        Tags = {
+            Status = 'Success',
+            Message = 'Auth Record Success'
+        },
+        Data = json.encode({ ProfileId = zone_id, DelegateAddress = Id, Role = Role })
+    })
+end
+
+
 local function process_profile_action(msg)
 
     local reply_to = msg.From

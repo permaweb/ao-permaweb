@@ -22,11 +22,17 @@ if not Zone then Zone = {} end
 if not Zone.zoneKV then Zone.zoneKV = KV.new({ BatchPlugin }) end
 if not Zone.assetManager then Zone.assetManager = AssetManager.new() end
 if not ZoneInitCompleted then ZoneInitCompleted = false end
-local REGISTRY = "X2g794G_f-y_4U_htwjZufZVEEiVAd4SBA4GVw0c-0Q"
+
+-- Notice queue: table of confirmation notices where we store array of assignmentId and registry destination
+Zone.noticeQueue = {}
+-- a table storing a mapping from registry addresses to actions that should be forwarded
+
 -- handlers to be forwarded
 local H_META_SET = "Zone-Metadata.Set"
 local H_ROLE_SET = "Zone-Role.Set"
 local H_CREATE_ZONE = "Create-Zone"
+local REGISTRIES = {"X2g794G_f-y_4U_htwjZufZVEEiVAd4SBA4GVw0c-0Q"}
+if not Zone.Subscribers then Zone.Subscribers = {[REGISTRIES[1]]={H_META_SET, H_ROLE_SET}} end
 
 -- handlers
 Zone.H_META_SET = H_META_SET
@@ -105,6 +111,7 @@ function Zone.zoneSet(msg)
         })
         return
     end
+
 end
 
 function Zone.zoneGet(msg)
@@ -146,6 +153,7 @@ Handlers.add(
     Handlers.utils.hasMatchingTag("Action", Zone.H_META_SET),
     Zone.zoneSet
 )
+
 Handlers.add(
     Zone.H_META_GET,
     Handlers.utils.hasMatchingTag("Action", Zone.H_META_GET),
@@ -160,6 +168,9 @@ Handlers.add('Credit-Notice', 'Credit-Notice', function(msg)
     })
 end)
 
+-- Whenever we assign to registries, wait for a notice.
+
+
 Handlers.add('Debit-Notice', 'Debit-Notice', function(msg)
     Zone.assetManager:update({
         Type = 'Remove',
@@ -169,7 +180,7 @@ Handlers.add('Debit-Notice', 'Debit-Notice', function(msg)
 end)
 
 if not ZoneInitCompleted then
-    ao.assign({ Processes = { REGISTRY }, Message = ao.id })
+    ao.assign({ Processes = REGISTRIES, Message = ao.id })
     ZoneInitCompleted = true
 end
 

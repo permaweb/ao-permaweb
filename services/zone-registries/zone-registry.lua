@@ -4,7 +4,6 @@ local sqlite3 = require('lsqlite3')
 -- primary registry should keep a list of wallet/zone-id pairs
 Db = Db or sqlite3.open_memory()
 
--- we have roles on who can do things, for now only owner used
 -- registry handlers
 local H_ADD_SUBSCRIBER = "Add-Subscriber"
 local H_READ_AUTH = "Read-Auth"
@@ -14,14 +13,26 @@ local H_PREPARE_DB = "Prepare-Database"
 -- handlers to be forwarded
 local H_META_SET = "Zone-Metadata.Set"
 local H_ROLE_SET = "Zone-Role.Set"
-local H_CREATE_ZONE = "Create-Zone"
-ao.addAssignable(H_META_SET, { Action = H_META_SET })
-ao.addAssignable(H_ROLE_SET, { Action = H_ROLE_SET })
-ao.addAssignable(H_CREATE_ZONE, { Action = H_CREATE_ZONE })
+local H_CREATE_ZONE = "Create-Zone" -- from process spawn tx
+
+local ASSIGNABLES = {
+    H_META_SET, H_ROLE_SET, H_CREATE_ZONE, H_GET_USER_ZONES
+}
+
+local function match_assignable_actions(a)
+    for _, v in ipairs(ASSIGNABLES) do
+        if a == v then
+            return true
+        end
+    end
+end
+
+ao.addAssignable("AssignableActions", { Action = function(a) return match_assignable_actions(a) end } )
 
 local HandlerRoles = {
     [H_META_SET] = {'Owner', 'Admin'},
-    [H_ROLE_SET] = {'Owner', 'Admin'},
+    [H_ROLE_SET] = {'Owner'},
+    -- TODO add code to allow Admin to set roles as long as not updating Owner
     -- legacy handlers:
     --['Update-Profile'] = {'Owner', 'Admin'},
     --['Add-Uploaded-Asset'] = {'Owner', 'Admin', 'Contributor'},
@@ -45,6 +56,8 @@ local function decode_message_data(data)
     end
     return true, decoded_data
 end
+
+
 
 local function is_authorized(zone_id, user_id, roles)
     if not zone_id then
@@ -81,13 +94,13 @@ local function handle_subscribe(msg)
             Target = msg.From,
             Action = 'ERROR',
             Tags = {
-                Status = 'DECODE_FAILED',
+                Status = 'ERROR',
                 Message = "Failed to decode data"
-            },
-            Data = { Code = "DECODE_FAILED" }
+            }
         })
         return
     end
+
 
     if not data or not data.actions or not #data.actions then
         ao.send({
@@ -96,10 +109,24 @@ local function handle_subscribe(msg)
             Tags = {
                 Status = 'DECODE_FAILED',
                 Message = "no subscribe actions found"
-            },
-            Data = { Code = "DECODE_FAILED" }
+            }
         })
         return
+    end
+
+    -- ensure data.actions is a table of strings
+    for _, action in ipairs(data.actions) do
+        if type(action) ~= 'string' then
+            ao.send({
+                Target = msg.From,
+                Action = 'ERROR',
+                Tags = {
+                    Status = 'DECODE_FAILED',
+                    Message = "actions must be a table of strings"
+                }
+            })
+            return
+        end
     end
 
     if not data.subscriber_id then
@@ -145,9 +172,8 @@ local function handle_create_zone(msg)
             Action = 'ERROR',
             Tags = {
                 Status = 'DECODE_FAILED',
-                Message = "Failed to decode data"
-            },
-            Data = { Code = "DECODE_FAILED" }
+                Message = "Create-Zone: Failed to decode data"
+            }
         })
         return
     end
@@ -164,25 +190,27 @@ local function handle_create_zone(msg)
         insert_auth:bind_values(ZoneId, UserId, 'Owner')
         insert_auth:step()
         insert_auth:finalize()
+        check:finalize()
     else
         ao.send({
             Target = reply_to,
             Action = 'ERROR',
             Tags = {
-                Status = 'DECODE_FAILED',
-                Message = "Failed to decode data"
-            },
-            Data = { Code = "DECODE_FAILED" }
+                Status = 'CREATE_FAILED',
+                Message = "Create-Zone: Failed to insert data"
+            }
         })
+        check:finalize()
         return
     end
+
     -- assign to subscribers
     ao.send({
         Target = reply_to,
         Action = 'Zone-Create-Success',
         Tags = {
             Status = 'Success',
-            Message = "Sucessfully Created Zone"
+            Message = "Create-Zone: Sucessfully Created Zone"
         }
     })
     handle_forward(msg)
