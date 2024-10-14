@@ -42,4 +42,4 @@ A profile must consist of the following components:
    - Transfer: For transferring assets
    - Credit-Notice and Debit-Notice: For managing asset balances
 
-The profile should follow the AO process model and interact with other AO processes, such as a central registry, for broader ecosystem integration.
+The profile should follow the AO process model and interact with other AO processes, such as a registry for broader ecosystem integration.
