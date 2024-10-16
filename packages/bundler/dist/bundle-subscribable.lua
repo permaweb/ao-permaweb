@@ -1116,12 +1116,13 @@ local function newmodule(cfg)
 
     return pkg
 end
+-- modified from original version to replace return newmodule
 package.loaded["subscribable"] = newmodule
 
 
  -- ENDFILE 
 
-
+-- possibly unneeded code
 
 table.insert(ao.authorities, 'fcoN_xJeisVsPXA-trzVAuIiqO3ydLQxM-L4XbrQKzY')
 Handlers.prepend("isTrusted",
