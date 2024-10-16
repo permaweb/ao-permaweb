@@ -440,7 +440,8 @@ end
 -- commented out in src to not exit bundle:
 -- return "📦 Loaded APM Client"
 
-local function load_subscribable()
+ -- ENDFILE 
+
 package.loaded["pkg-api"] = nil
 package.loaded["storage-vanilla"] = nil
 package.loaded["storage-db"] = nil
@@ -1115,9 +1116,12 @@ local function newmodule(cfg)
 
     return pkg
 end
-return newmodule
-end
-package.loaded[''] = load_subscribable()
+package.loaded["subscribable"] = newmodule
+
+
+ -- ENDFILE 
+
+
 
 table.insert(ao.authorities, 'fcoN_xJeisVsPXA-trzVAuIiqO3ydLQxM-L4XbrQKzY')
 Handlers.prepend("isTrusted",
@@ -1129,6 +1133,8 @@ Handlers.prepend("isTrusted",
             print("Message is not trusted. From: " .. msg.From .. " - Owner: " .. msg.Owner)
         end
 )
+ -- ENDFILE 
+
 
 
 -- ================================================================================
@@ -1139,9 +1145,8 @@ Handlers.prepend("isTrusted",
 local function load_kv()
 
 
-package.loaded["@permaweb/kv-base"] = nil
 
-do
+
     local KVPackageName = "@permaweb/kv-base"
     local KV = {}
 
@@ -1225,8 +1230,8 @@ do
             return KV.starts_with(k, str)
         end)
     end
-    package.preload[KVPackageName] = KV
-end
+    return KV
+
 end
 package.loaded['@permaweb/kv-base'] = load_kv()
 
@@ -1285,7 +1290,7 @@ do
         return plugin
     end
 
-    package.preload[PackageName] = BatchPlugin
+    return BatchPlugin
 end
 end
 package.loaded['@permaweb/kv-batch'] = load_batch()
@@ -1598,6 +1603,8 @@ Handlers.add('Credit-Notice', 'Credit-Notice', function(msg)
 end)
 
 -- Register: Tags.Topics = "{"topic","topic2}"
+-- Tags.Subscriber-Process-Id = "123"
+
 Handlers.add(
         "Register-Whitelisted-Subscriber",
         Handlers.utils.hasMatchingTag("Action", "Register-Whitelisted-Subscriber"),

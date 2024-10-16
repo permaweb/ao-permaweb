@@ -52,9 +52,12 @@ for i in "${!FILES[@]}"; do
     FILE="${FILES[$i]}"
     PACKAGE_NAME="${PACKAGE_NAMES[$i]}"
 
-    if [[ "$FILE" == *"apm"* ]] || [[ "$FILE" == *"trusted"* ]]; then
+    if [[ "$FILE" == *"apm"* ]] || [[ "$FILE" == *"trusted"* ]] || [[ "$FILE" == *"subscribable"* ]]; then
         cat "$FILE" >> "$TARGET_FILE"
-        echo "" >> "$TARGET_FILE"  # Add a newline for separation
+        echo "" >> "$TARGET_FILE"
+        echo " -- ENDFILE " >> "$TARGET_FILE"
+        echo "" >> "$TARGET_FILE"   # Add a newline for separation
+
         continue
     fi
 

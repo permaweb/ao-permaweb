@@ -672,4 +672,6 @@ local function newmodule(cfg)
 
     return pkg
 end
-return newmodule
+-- modified from original version to replace return newmodule
+package.loaded["subscribable"] = newmodule
+

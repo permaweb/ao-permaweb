@@ -151,6 +151,8 @@ Handlers.add('Credit-Notice', 'Credit-Notice', function(msg)
 end)
 
 -- Register: Tags.Topics = "{"topic","topic2}"
+-- Tags.Subscriber-Process-Id = "123"
+
 Handlers.add(
         "Register-Whitelisted-Subscriber",
         Handlers.utils.hasMatchingTag("Action", "Register-Whitelisted-Subscriber"),

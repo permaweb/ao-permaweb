@@ -270,6 +270,7 @@ export async function aoCreateProcess(args: APICreateProcessType, statusCB?: (st
 		});
 		statusCB && statusCB("Eval success")
 		console.log(evalResult);
+		return processId;
 
 	} catch (e: unknown) {
 		let message = '';

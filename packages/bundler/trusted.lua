@@ -1,3 +1,5 @@
+-- possibly unneeded code
+
 table.insert(ao.authorities, 'fcoN_xJeisVsPXA-trzVAuIiqO3ydLQxM-L4XbrQKzY')
 Handlers.prepend("isTrusted",
         function (msg)

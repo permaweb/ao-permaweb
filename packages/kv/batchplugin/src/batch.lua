@@ -45,5 +45,5 @@ do
         return plugin
     end
 
-    package.preload[PackageName] = BatchPlugin
+    return BatchPlugin
 end

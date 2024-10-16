@@ -1,8 +1,7 @@
 
 
-package.loaded["@permaweb/kv-base"] = nil
 
-do
+
     local KVPackageName = "@permaweb/kv-base"
     local KV = {}
 
@@ -86,5 +85,5 @@ do
             return KV.starts_with(k, str)
         end)
     end
-    package.preload[KVPackageName] = KV
-end
+    return KV
+
