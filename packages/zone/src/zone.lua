@@ -1,4 +1,3 @@
-local PackageName = "@permaweb/zone"
 local KV = require("@permaweb/kv-base")
 if not KV then
     error("KV Not found, install it")
@@ -14,33 +13,24 @@ if not AssetManager then
     error("AssetManager not found, install it")
 end
 
-if package.loaded[PackageName] then
-    return package.loaded[PackageName]
-end
+local Subscribable = require 'subscribable' ({
+    useDB = false
+})
+
+
 
 if not Zone then Zone = {} end
 if not Zone.zoneKV then Zone.zoneKV = KV.new({ BatchPlugin }) end
 if not Zone.assetManager then Zone.assetManager = AssetManager.new() end
 if not ZoneInitCompleted then ZoneInitCompleted = false end
 
--- Notice queue: table of confirmation notices where we store array of assignmentId and registry destination
-Zone.noticeQueue = {}
--- a table storing a mapping from registry addresses to actions that should be forwarded
-
--- handlers to be forwarded
-local H_META_SET = "Zone-Metadata.Set"
-local H_ROLE_SET = "Zone-Role.Set"
-local H_CREATE_ZONE = "Create-Zone"
-local REGISTRIES = {"X2g794G_f-y_4U_htwjZufZVEEiVAd4SBA4GVw0c-0Q"}
-if not Zone.Subscribers then Zone.Subscribers = {[REGISTRIES[1]]={H_META_SET, H_ROLE_SET}} end
-
 -- handlers
-Zone.H_META_SET = H_META_SET
 Zone.H_ROLE_SET = H_ROLE_SET
-Zone.H_META_GET = "Zone-Metadata.Get"
-Zone.H_META_ERROR = "Zone-Metadata.Error"
-Zone.H_META_SUCCESS = "Zone-Metadata.Success"
+Zone.H_PROFILE_ERROR = "Zone-Metadata.Error"
+Zone.H_PROFILE_SUCCESS = "Zone-Metadata.Success"
 Zone.H_INFO = "Zone-Info"
+Zone.H_PROFILE_GET = "Get-Profile"
+Zone.H_PROFILE_UPDATE = "Update-Profile"
 
 function Zone.decodeMessageData(data)
     local status, decodedData = pcall(json.decode, data)
@@ -62,11 +52,11 @@ function Zone.hello()
     print("Hello zone")
 end
 
-function Zone.zoneSet(msg)
+function Zone.profileUpdate(msg)
     if Zone.isAuthorized(msg) ~= true then
         ao.send({
             Target = msg.From,
-            Action = Zone.H_META_ERROR,
+            Action = Zone.H_PROFILE_ERROR,
             Tags = {
                 Status = 'Error',
                 Message =
@@ -79,7 +69,7 @@ function Zone.zoneSet(msg)
     if not decodeCheck then
         ao.send({
             Target = msg.From,
-            Action = Zone.H_META_ERROR,
+            Action = Zone.H_PROFILE_ERROR,
             Tags = {
                 Status = 'Error',
                 Message =
@@ -91,35 +81,27 @@ function Zone.zoneSet(msg)
 
     local entries = data.entries
 
-    local testkeys = {}
-
     if #entries then
         for _, entry in ipairs(entries) do
             if entry.key and entry.value then
-                table.insert(testkeys, entry.key)
                 Zone.zoneKV:set(entry.key, entry.value)
             end
         end
         ao.send({
             Target = msg.From,
-            Action = Zone.H_META_SUCCESS,
-            Tags = {
-                Value1 = Zone.zoneKV:get(testkeys[1]),
-                Key1 = testkeys[1]
-            },
-            Data = json.encode({ First = Zone.zoneKV:get(testkeys[1]) })
+            Action = Zone.H_PROFILE_SUCCESS,
         })
+        Subscribable.notifySubscribers(Zone.H_PROFILE_UPDATE, { UpdateTx = msg.Id })
         return
     end
-
 end
 
-function Zone.zoneGet(msg)
+function Zone.profileGet(msg)
     local decodeCheck, data = Zone.decodeMessageData(msg.Data)
     if not decodeCheck then
         ao.send({
             Target = msg.From,
-            Action = Zone.H_META_ERROR,
+            Action = Zone.H_PROFILE_ERROR,
             Tags = {
                 Status = 'Error',
                 Message =
@@ -142,22 +124,22 @@ function Zone.zoneGet(msg)
         end
         ao.send({
             Target = msg.From,
-            Action = Zone.H_META_SUCCESS,
+            Action = Zone.H_PROFILE_SUCCESS,
             Data = json.encode({ Results = results })
         })
     end
 end
 
 Handlers.add(
-    Zone.H_META_SET,
-    Handlers.utils.hasMatchingTag("Action", Zone.H_META_SET),
-    Zone.zoneSet
+    Zone.H_PROFILE_UPDATE,
+    Handlers.utils.hasMatchingTag("Action", Zone.H_PROFILE_UPDATE),
+    Zone.profileUpdate
 )
 
 Handlers.add(
-    Zone.H_META_GET,
-    Handlers.utils.hasMatchingTag("Action", Zone.H_META_GET),
-    Zone.zoneGet
+    Zone.H_PROFILE_GET,
+    Handlers.utils.hasMatchingTag("Action", Zone.H_PROFILE_GET),
+    Zone.profileGet
 )
 
 Handlers.add('Credit-Notice', 'Credit-Notice', function(msg)
@@ -168,8 +150,12 @@ Handlers.add('Credit-Notice', 'Credit-Notice', function(msg)
     })
 end)
 
--- Whenever we assign to registries, wait for a notice.
-
+-- Register: Tags.Topics = "{"topic","topic2}"
+Handlers.add(
+        "Register-Whitelisted-Subscriber",
+        Handlers.utils.hasMatchingTag("Action", "Register-Whitelisted-Subscriber"),
+        Subscribable.handleRegisterWhitelistedSubscriber
+)
 
 Handlers.add('Debit-Notice', 'Debit-Notice', function(msg)
     Zone.assetManager:update({
@@ -179,8 +165,19 @@ Handlers.add('Debit-Notice', 'Debit-Notice', function(msg)
     })
 end)
 
+Subscribable.configTopicsAndChecks({
+    ['Update-Profile'] = {
+        -- omit below because we're calling notifySubscribers directly
+        -- checkFn = checkForProfileUpdate,
+        -- payloadFn = payloadForProfileUpdate,
+        description = 'Profile Updated',
+        returns = '{ "UpdateTx" : string }',
+        subscriptionBasis = "Whitelisting"
+    },
+})
+
+
 if not ZoneInitCompleted then
-    ao.assign({ Processes = REGISTRIES, Message = ao.id })
     ZoneInitCompleted = true
 end
 

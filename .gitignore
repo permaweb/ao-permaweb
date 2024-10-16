@@ -3,4 +3,5 @@
 **wallets
 **.DS_Store
 **dist/
+!**/packages/bundler/dist
 **.idea/
