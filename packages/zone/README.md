@@ -1,15 +1,12 @@
-# Zone.Profile Package
-
+# Zone Package
+Should have profile package broken out
 ## Usage
 ### Write
 
-To set metadata entries in the Zone, send a message with the `Zone-Metadata.Set` action and the appropriate data.
+To set metadata entries in the Zone, send a message with the `Update-Profile` action and the appropriate data.
 
 **Parameters**:
-- `process`: The process identifier.
 - `data`: A JSON string containing an array of `entries`, where each entry has a `key` and `value`.
-- `tags`: An array of tags, where each tag has a `name` and `value`.
-
 
 **Data Schema**:
 ```json
@@ -39,19 +36,17 @@ To set metadata entries in the Zone, send a message with the `Zone-Metadata.Set`
   "tags": [
     {
       "name": "Action",
-      "value": "Zone-Metadata.Set"
+      "value": "Update-Profile"
     }
   ]
 }
 ```
 ### Read
-To retrieve metadata entries from the Zone, send a message with the Zone-Metadata.Get action and the appropriate data.  
+To retrieve metadata entries from the Zone, send a message with the `Get-Profile` action and the appropriate data.  
 
 **Parameters**:
 
-- `process`: The process identifier.
 - `data`: A JSON string containing an array of `keys` to retrieve.
-- `tags`: An array of tags, where each tag has a `name` and `value`.
 
 **Data Schema**:
 ```json
@@ -75,7 +70,7 @@ To retrieve metadata entries from the Zone, send a message with the Zone-Metadat
   "tags": [
     {
       "name": "Action",
-      "value": "Zone-Metadata.Get"
+      "value": "Get-Profile"
     }
   ]
 }
@@ -92,7 +87,7 @@ To retrieve metadata entries from the Zone, send a message with the Zone-Metadat
 }
 ```
 
-## Testing
+## Testing KV
 ### AOS CLI Example
 To set metadata entries in the Zone, send a message with the `Zone-Metadata.Set` action and the appropriate data.
 

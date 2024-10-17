@@ -437,5 +437,5 @@ function APM.update()
 end
 
 --
---
---return "📦 Loaded APM Client"
+-- commented out in src to not exit bundle:
+-- return "📦 Loaded APM Client"

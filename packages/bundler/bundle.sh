@@ -3,7 +3,7 @@
 set -e
 
 # Define the target file
-TARGET_FILE="./dist/bundle-test-registry.lua"
+TARGET_FILE="./dist/bundle-subscribable.lua"
 
 # Clear the target file if it exists
 > "$TARGET_FILE"
@@ -11,6 +11,7 @@ TARGET_FILE="./dist/bundle-test-registry.lua"
 # Array of files to bundle
 FILES=(
     "./apm_client.lua"
+    "./subscribable.lua"
     "./trusted.lua"
     "../kv/base/src/kv.lua"
     "../kv/batchplugin/src/batch.lua"
@@ -20,6 +21,7 @@ FILES=(
 
 # Array of corresponding package names
 PACKAGE_NAMES=(
+    ""
     ""
     ""
     "@permaweb/kv-base"
@@ -50,8 +52,12 @@ for i in "${!FILES[@]}"; do
     FILE="${FILES[$i]}"
     PACKAGE_NAME="${PACKAGE_NAMES[$i]}"
 
-    if [[ "$FILE" == *"apm"* ]] || [[ "$FILE" == *"trusted"* ]]; then
+    if [[ "$FILE" == *"apm"* ]] || [[ "$FILE" == *"trusted"* ]] || [[ "$FILE" == *"subscribable"* ]]; then
         cat "$FILE" >> "$TARGET_FILE"
+        echo "" >> "$TARGET_FILE"
+        echo " -- ENDFILE " >> "$TARGET_FILE"
+        echo "" >> "$TARGET_FILE"   # Add a newline for separation
+
         continue
     fi
 
