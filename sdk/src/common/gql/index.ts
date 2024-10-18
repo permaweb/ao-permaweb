@@ -1,4 +1,3 @@
-import { PAGINATORS, CURSORS, GATEWAYS } from '../helpers';
 import {
 	BatchAGQLResponseType,
 	BatchGQLArgsType,
@@ -7,6 +6,8 @@ import {
 	GQLNodeResponseType,
 	QueryBodyGQLArgsType,
 } from 'types/gql';
+
+import { CURSORS, GATEWAYS, PAGINATORS } from '../helpers';
 
 export async function getGQLData(args: GQLArgsType): Promise<DefaultGQLResponseType> {
 	const paginator = args.paginator ? args.paginator : PAGINATORS.default;
@@ -107,9 +108,9 @@ function getQueryBody(args: QueryBodyGQLArgsType): string {
 	const blockFilterStr = blockFilter ? JSON.stringify(blockFilter).replace(/"([^"]+)":/g, '$1:') : null;
 	const tagFilters = args.tagFilters
 		? JSON.stringify(args.tagFilters)
-			.replace(/"(name)":/g, '$1:')
-			.replace(/"(values)":/g, '$1:')
-			.replace(/"FUZZY_OR"/g, 'FUZZY_OR')
+				.replace(/"(name)":/g, '$1:')
+				.replace(/"(values)":/g, '$1:')
+				.replace(/"FUZZY_OR"/g, 'FUZZY_OR')
 		: null;
 	const owners = args.owners ? JSON.stringify(args.owners) : null;
 	const cursor = args.cursor && args.cursor !== CURSORS.end ? `"${args.cursor}"` : null;
@@ -172,4 +173,3 @@ async function getResponse(args: { gateway: string; query: string }): Promise<an
 		throw e;
 	}
 }
-

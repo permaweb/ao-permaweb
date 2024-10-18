@@ -1,15 +1,15 @@
-import {APICreateProcessType, APIDryRunType, APIResultType, APISendType, APISpawnType} from 'types/ao';
+import { GATEWAYS, getGQLData, getTxEndpoint } from 'common';
+import { getTagValue } from 'common/helpers';
+import { APICreateProcessType, APIDryRunType, APIResultType, APISendType, APISpawnType } from 'types/ao';
 import { TagType } from 'types/helpers';
 
-import { connect, createDataItemSigner, dryrun, message, result, results  } from '@permaweb/aoconnect';
-
-import { getTagValue } from 'common/helpers';
-import {GATEWAYS, getTxEndpoint} from "common";
-import {getGQLData} from "common";
+import { connect, createDataItemSigner, dryrun, message, result, results } from '@permaweb/aoconnect';
 
 export const RETRY_COUNT = 200;
+
 export async function aoSpawn(args: APISpawnType): Promise<any> {
 	const aos = connect();
+
 	const processId = await aos.spawn({
 		module: args.module,
 		scheduler: args.scheduler,
@@ -46,15 +46,15 @@ export async function aoDryRun(args: APIDryRunType): Promise<any> {
 		const tags = [{ name: 'Action', value: args.action }];
 		if (args.tags) tags.push(...args.tags);
 		let dataPayload;
-		if (typeof(args.data) === "object") {
+		if (typeof args.data === 'object') {
 			dataPayload = JSON.stringify(args.data || {});
-		} else if (typeof(args.data) === "string") {
+		} else if (typeof args.data === 'string') {
 			// try to parse json and throw an error if it can't
 			try {
-				const jsonresult = JSON.parse(args.data)
+				const jsonresult = JSON.parse(args.data);
 			} catch (e) {
 				console.error(e);
-				throw new Error("Invalid JSON data");
+				throw new Error('Invalid JSON data');
 			}
 			dataPayload = args.data;
 		}
@@ -232,7 +232,7 @@ async function waitForProcess(processId: string, setStatus?: (status: any) => vo
 		}
 	}
 
-	setStatus && setStatus("Error, not found");
+	setStatus && setStatus('Error, not found');
 	throw new Error(`Profile not found, please try again`);
 }
 
@@ -245,13 +245,13 @@ export async function aoCreateProcess(args: APICreateProcessType, statusCB?: (st
 			scheduler: args.scheduler,
 			data: args.spawnData,
 			tags: args.spawnTags,
-			wallet: args.wallet
-		})
+			wallet: args.wallet,
+		});
 
-		const src = await processSrcFetch.text()
+		const src = await processSrcFetch.text();
 
-		await waitForProcess(processId, statusCB)
-		statusCB && statusCB("Spawned and found:" + processId)
+		await waitForProcess(processId, statusCB);
+		statusCB && statusCB('Spawned and found:' + processId);
 		const evalMessage = await aoSend({
 			processId,
 			wallet: args.wallet,
@@ -259,29 +259,28 @@ export async function aoCreateProcess(args: APICreateProcessType, statusCB?: (st
 			data: src,
 			tags: args.evalTags,
 			useRawData: true,
-		})
-		statusCB && statusCB("Eval sent")
-		console.log('evalmsg', evalMessage)
+		});
+		statusCB && statusCB('Eval sent');
+		console.log('evalmsg', evalMessage);
 
 		const evalResult = await aoMessageResult({
 			processId: processId,
 			messageId: evalMessage,
 			messageAction: 'Eval',
 		});
-		statusCB && statusCB("Eval success")
+		statusCB && statusCB('Eval success');
 		console.log(evalResult);
 		return processId;
-
 	} catch (e: unknown) {
 		let message = '';
 		if (e instanceof Error) {
 			message = e.message;
-		} else if (typeof e === "string" ) {
+		} else if (typeof e === 'string') {
 			message = e;
 		} else {
-			message = "Unknown error";
+			message = 'Unknown error';
 		}
-		statusCB && statusCB(`Create failed: message: ${message}`)
+		statusCB && statusCB(`Create failed: message: ${message}`);
 	}
 	// spawn
 	// wait/fetch

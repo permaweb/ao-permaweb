@@ -1,5 +1,5 @@
 {
-	"name": "@permaweb/api",
+	"name": "@permaweb/sdk",
 	"version": "1.0.0",
 	"description": "",
 	"main": "dist/index.js",
@@ -13,7 +13,7 @@
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/permaweb/ao-permaweb.git",
-		"directory": "api"
+		"directory": "sdk"
 	},
 	"scripts": {
 		"format": "eslint --fix . && npx prettier --write .",
@@ -24,7 +24,7 @@
 		"tsc-alias": "^1.8.10"
 	},
 	"devDependencies": {
-		"@types/node": "^22.5.4",
+		"@types/node": "^22.7.6",
 		"@typescript-eslint/eslint-plugin": "^5.57.1",
 		"@typescript-eslint/parser": "^5.57.1",
 		"eslint": "^8.35.0",

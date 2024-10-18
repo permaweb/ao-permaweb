@@ -1,4 +1,4 @@
-import {TagType} from "types/helpers";
+import { TagType } from 'types/helpers';
 
 export type APICreateZone = {
 	module: string;
