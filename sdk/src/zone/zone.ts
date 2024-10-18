@@ -1,7 +1,7 @@
-import {aoMessageResult, aoSend, aoSpawn} from '../common/ao';
+import { aoMessageResult, aoSend, aoSpawn } from '../common/ao';
+import { getGQLData } from '../common/gql';
+import { GATEWAYS } from '../common/helpers/config';
 import { APICreateZone } from '../types/zone';
-import {getGQLData} from "../common/gql";
-import {GATEWAYS} from "../common/helpers/config";
 
 export async function createZone(args: APICreateZone, setStatus: (status: any) => void) {
 	const spawnArgs = {
@@ -10,20 +10,20 @@ export async function createZone(args: APICreateZone, setStatus: (status: any) =
 		wallet: args.wallet,
 		tags: args.tags,
 		data: args.data,
-	}
-	const processTxid = await aoSpawn(spawnArgs)
+	};
+	const processTxid = await aoSpawn(spawnArgs);
 
-	type CreateStatus = { step: string, retries: number }
+	type CreateStatus = { step: string; retries: number };
 	const status = {
-		step: "waiting",
-		retries: 0
-	}
-	setStatus(status)
+		step: 'waiting',
+		retries: 0,
+	};
+	setStatus(status);
 
 	console.log('Fetching profile process...');
 	let fetchedAssetId: string = '';
 	while (!fetchedAssetId) {
-		setStatus(status)
+		setStatus(status);
 
 		await new Promise((r) => setTimeout(r, 2000));
 		const gqlResponse = await getGQLData({
@@ -41,7 +41,7 @@ export async function createZone(args: APICreateZone, setStatus: (status: any) =
 			console.log(`Transaction not found -`, processTxid);
 			status.retries++;
 			if (status.retries >= 200) {
-				status.step = "failed"
+				status.step = 'failed';
 				setStatus(status);
 				throw new Error(`Profile not found, please try again`);
 			}
@@ -54,7 +54,7 @@ export async function createZone(args: APICreateZone, setStatus: (status: any) =
 			processId: processTxid,
 			action: 'Eval',
 			wallet: args.wallet,
-			data: "srcdata...",
+			data: 'srcdata...',
 			tags: null,
 		});
 

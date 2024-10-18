@@ -37,5 +37,5 @@ export type APICreateProcessType = {
 	evalTags: TagType[];
 	wallet: any;
 	evalTxid: string;
-	spawnData?: string;
-}
+	spawnData?: any;
+};

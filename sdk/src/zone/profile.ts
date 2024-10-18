@@ -1,8 +1,8 @@
+import { ReadProfileArgs } from 'types/profile';
+
 import { connect, createDataItemSigner } from '@permaweb/aoconnect';
 
 import { aoDryRun, aoSpawn } from '../common/ao';
-
-import { ReadProfileArgs } from 'types/profile';
 
 export async function readMetadata(processId: string, keys: string[]) {
 	try {

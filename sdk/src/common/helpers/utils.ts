@@ -1,6 +1,4 @@
-import {
-	DateType,
-} from 'types/helpers';
+import { DateType } from 'types/helpers';
 
 declare const InstallTrigger: any;
 
@@ -108,9 +106,9 @@ export function formatDate(dateArg: string | number | null, dateType: DateType, 
 	return fullTime
 		? `${date.toLocaleString('default', { month: 'long' })} ${date.getDate()}, ${date.getUTCFullYear()} ${
 				date.getHours() % 12 || 12
-		  }:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')} ${
+			}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')} ${
 				date.getHours() >= 12 ? 'PM' : 'AM'
-		  }`
+			}`
 		: `${date.toLocaleString('default', { month: 'long' })} ${date.getDate()}, ${date.getUTCFullYear()}`;
 }
 

@@ -1,4 +1,4 @@
-import {TagFilterType, TagType} from "types/helpers";
+import { TagFilterType, TagType } from 'types/helpers';
 
 export type BaseGQLArgsType = {
 	ids?: string[] | null;
