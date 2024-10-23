@@ -29,7 +29,7 @@ export type MessageSendType = {
 export type MessageResultType = {
 	messageId: string;
 	processId: string;
-	messageAction: string;
+	action: string;
 };
 
 export type MessageDryRunType = {
@@ -53,20 +53,32 @@ export type AssetCreateArgsType = {
 	transferable?: boolean;
 };
 
-export type AssetType = {
+export type AssetHeaderType = {
 	id: string;
-	title: string;
+	owner: string | null;
+	creator: string | null;
+	title: string | null;
 	description: string | null;
-	dateCreated: number;
-	blockHeight: number;
+	type: string | null;
+	topics: string[] | null;
+	implementation: string | null;
+	contentType: string | null;
 	renderWith: string | null;
 	thumbnail: string | null;
-	implementation: string | null;
-	creator: string;
-	collectionId?: string | null;
-	contentType?: string | null;
 	udl: UDLicenseType | null;
+	collectionId: string | null;
+	dateCreated: number | null;
+	blockHeight: number | null;
 };
+
+export type AssetStateType = {
+	ticker: string | null;
+	denomination: string | null;
+	balances: { [key: string]: string } | null;
+	transferable: boolean | null;
+}
+
+export type AssetDetailType = AssetHeaderType & AssetStateType;
 
 export type UDLicenseType = {
 	access: UDLicenseValueType | null;
@@ -112,15 +124,13 @@ export type GQLNodeResponseType = {
 			size: string;
 			type: string;
 		};
-		block?: {
+		owner: {
+			address: string;
+		};
+		block: {
 			height: number;
 			timestamp: number;
 		};
-		owner?: {
-			address: string;
-		};
-		address?: string;
-		timestamp?: number;
 	};
 };
 

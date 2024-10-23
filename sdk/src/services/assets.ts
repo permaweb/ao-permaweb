@@ -2,9 +2,12 @@ import { aoCreateProcess, aoDryRun, fetchProcessSrc } from 'common/ao';
 import { getGQLData } from 'common/gql';
 
 import { AO, CONTENT_TYPES, GATEWAYS, LICENSES, TAGS } from 'helpers/config';
-import { AssetCreateArgsType, AssetType, GQLNodeResponseType, UDLicenseType } from 'helpers/types';
+import { AssetCreateArgsType, AssetDetailType, AssetHeaderType, AssetStateType, GQLNodeResponseType, UDLicenseType } from 'helpers/types';
 import { formatAddress, getTagValue } from 'helpers/utils';
 
+// TODO: Render-With
+// TODO: Thumbnail
+// TODO: License
 export async function createAtomicAsset(args: AssetCreateArgsType, wallet: any, callback: (status: any) => void) {
 	if (!validateAssetCreateArgs(args)) throw new Error('Invalid arguments passed for atomic asset creation');
 
@@ -47,27 +50,28 @@ export async function createAtomicAsset(args: AssetCreateArgsType, wallet: any, 
 	}
 }
 
-export async function getAtomicAsset(args: { id: string }): Promise<AssetType | null> {
+// TODO: Get assets
+// TODO: Get ids by address
+
+export async function getAtomicAsset(id: string): Promise<AssetDetailType | null> {
 	try {
 		const gqlResponse = await getGQLData({
 			gateway: GATEWAYS.arweave,
-			ids: [args.id],
+			ids: [id],
 			tagFilters: null,
 			owners: null,
 			cursor: null,
 		});
 
 		if (gqlResponse && gqlResponse.data.length) {
-			let assetState: any = {
-				name: null,
+			const asset: AssetHeaderType = buildAsset(gqlResponse.data[0]);
+			
+			let state: AssetStateType = {
 				ticker: null,
 				denomination: null,
-				logo: null,
 				balances: null,
-				transferable: null,
-			};
-
-			const asset = buildAsset(gqlResponse.data[0]);
+				transferable: null
+			}
 
 			const processState = await aoDryRun({
 				processId: asset.id,
@@ -76,39 +80,38 @@ export async function getAtomicAsset(args: { id: string }): Promise<AssetType | 
 
 			if (processState) {
 				if (processState.Name || processState.name) {
-					assetState.name = processState.Name || processState.name;
 					asset.title = processState.Name || processState.name;
 				}
-				if (processState.Ticker || processState.ticker) assetState.ticker = processState.Ticker || processState.ticker;
+				if (processState.Ticker || processState.ticker) state.ticker = processState.Ticker || processState.ticker;
 				if (processState.Denomination || processState.denomination)
-					assetState.denomination = processState.Denomination || processState.denomination;
-				if (processState.Logo || processState.logo) assetState.logo = processState.Logo || processState.logo;
+					state.denomination = processState.Denomination || processState.denomination;
+				if (processState.Logo || processState.logo) asset.thumbnail = processState.Logo || processState.logo;
 				if (processState.Balances) {
-					assetState.balances = Object.fromEntries(
+					state.balances = Object.fromEntries(
 						Object.entries(processState.Balances).filter(([_, value]) => Number(value) !== 0)
 					) as any;
 				}
 				if (processState.Transferable !== undefined) {
-					assetState.transferable = processState.Transferable;
+					state.transferable = processState.Transferable;
 				} else {
-					assetState.transferable = true;
+					state.transferable = true;
 				}
 			}
 
-			if (!assetState.balances) {
+			if (!state.balances) {
 				try {
 					const processBalances = await aoDryRun({
 						processId: asset.id,
 						action: 'Balances',
 					});
 
-					if (processBalances) assetState.balances = processBalances;
+					if (processBalances) state.balances = processBalances;
 				} catch (e: any) {
 					console.error(e);
 				}
 			}
 
-			return { ...asset, ...assetState };
+			return { ...asset, ...state };
 		}
 
 		return null;
@@ -117,37 +120,52 @@ export async function getAtomicAsset(args: { id: string }): Promise<AssetType | 
 	}
 }
 
-export function buildAsset(element: GQLNodeResponseType): AssetType {
-	let title =
-		getTagValue(element.node.tags, TAGS.keys.title) ||
-		getTagValue(element.node.tags, TAGS.keys.name) ||
-		formatAddress(element.node.id, false);
-
+export function buildAsset(element: GQLNodeResponseType): AssetHeaderType {
 	const asset = {
 		id: element.node.id,
-		title: title,
+		owner: element.node.owner.address,
+		creator: getTagValue(element.node.tags, TAGS.keys.creator),
+		title: getTitle(element),
 		description: getTagValue(element.node.tags, TAGS.keys.description),
-		dateCreated: element.node.block
-			? element.node.block.timestamp * 1000
-			: element.node.timestamp
-				? element.node.timestamp
-				: getTagValue(element.node.tags, TAGS.keys.dateCreated)
-					? Number(getTagValue(element.node.tags, TAGS.keys.dateCreated))
-					: 0,
-		blockHeight: element.node.block ? element.node.block.height : 0,
-		creator: getTagValue(element.node.tags, TAGS.keys.creator) || '',
-		renderWith: getTagValue(element.node.tags, TAGS.keys.renderWith),
-		license: getTagValue(element.node.tags, TAGS.keys.license),
-		udl: getLicense(element),
-		thumbnail: getTagValue(element.node.tags, TAGS.keys.thumbnail),
+		type: getTagValue(element.node.tags, TAGS.keys.type),
+		topics: getTopics(element),
 		implementation: getTagValue(element.node.tags, TAGS.keys.implements),
-		collectionId: getTagValue(element.node.tags, TAGS.keys.collectionId),
-		collectionName: getTagValue(element.node.tags, TAGS.keys.collectionName),
 		contentType: getTagValue(element.node.tags, TAGS.keys.contentType),
+		renderWith: getTagValue(element.node.tags, TAGS.keys.renderWith),
+		thumbnail: getTagValue(element.node.tags, TAGS.keys.thumbnail),
+		udl: getLicense(element),
+		collectionId: getTagValue(element.node.tags, TAGS.keys.collectionId),
+		dateCreated: getDateCreated(element),
+		blockHeight: element.node.block ? element.node.block.height : 0,
 	}
 
-
 	return asset;
+}
+
+function getTitle(element: GQLNodeResponseType): string {
+    return getTagValue(element.node.tags, TAGS.keys.title) ||
+           getTagValue(element.node.tags, TAGS.keys.name) ||
+           formatAddress(element.node.id, false);
+}
+
+function getTopics(element: GQLNodeResponseType): string[] {
+	return element.node.tags
+		.filter(tag => tag.name.includes(TAGS.keys.topic.toLowerCase()))
+		.map(tag => tag.value);
+}
+
+
+function getDateCreated(element: GQLNodeResponseType): number {
+    if (element.node.block) {
+        return element.node.block.timestamp * 1000;
+    }
+
+    const dateCreatedTag = getTagValue(element.node.tags, TAGS.keys.dateCreated);
+    if (dateCreatedTag) {
+        return Number(dateCreatedTag);
+    }
+    
+    return 0;
 }
 
 function getLicense(element: GQLNodeResponseType): UDLicenseType | null {

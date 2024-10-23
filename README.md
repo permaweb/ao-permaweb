@@ -28,9 +28,9 @@ Zones are a representation of an entity which contains information relevant to t
 
 Atomic assets are unique digital item consisting of an AO process and its associated data which are stored together in a single transaction on Arweave.
 
-#### `createAtomicAsset({ Args }) -> <AssetId>`
+#### `createAtomicAsset({ Args }) -> <AssetTxId>`
 
-Creates an atomic asset ([View implementation](./sdk/src/services/assets.ts#L6)).
+Creates an atomic asset. ([View implementation](./sdk/src/services/assets.ts#L8))
 
 ```typescript
 import { createAtomicAsset } from '@permaweb/sdk';
@@ -48,12 +48,12 @@ const assetId = await createAtomicAsset({
 **Response**
 
 ```typescript
-TxId
+AssetTxId
 ```
 
-#### `getAtomicAsset({ AssetId }) -> <Asset>`
+#### `getAtomicAsset({ AssetTxId }) -> <Asset>`
 
-Performs a lookup of the atomic asset by ID ([View implementation](./sdk/src/services/assets.ts#L50)).
+Performs a lookup of an atomic asset by ID. ([View implementation](./sdk/src/services/assets.ts#L50))
 
 ```typescript
 import { getAtomicAsset } from "@permaweb/sdk";
@@ -65,25 +65,35 @@ const asset = await getAtomicAsset(AssetTxId);
 
 ```typescript
  {
-    id: 'TxId',
-    title: 'Example Atomic Asset',
-    description: 'Example Atomic Asset Description',
-    dateCreated: 1678901234567,
-    blockHeight: 1234567,
-    renderWith: 'render-app',
-    thumbnail: 'ThumbnailTxId',
-    implementation: 'atomic-asset-v1',
-    creator: 'ArweaveAddress',
-    collectionId: 'CollectionTxId',
-    contentType: 'text/html',
-    udl: {
-      access: { value: 'One-Time-0.5' },
-      derivations: { value: 'Allowed-With-Credit-0.5' },
-      commercialUse: { value: 'Allowed' },
-      dataModelTraining: { value: 'Not-Allowed' },
-      paymentMode: 'Global-Amount',
-      paymentAddress: 'ArweaveAddress',
-      currency: 'AR',
-    }
- }
+  id: 'z0f2O9Fs3yb_EMXtPPwKeb2O0WueIG5r7JLs5UxsA4I',
+  title: 'City',
+  description: 'A collection of AI generated images of different settings and areas',
+  type: null,
+  topics: null,
+  contentType: 'image/png',
+  renderWith: null,
+  thumbnail: null,
+  udl: {
+    access: { value: 'One-Time-0.1' },
+    derivations: { value: 'Allowed-With-One-Time-Fee-0.1' },
+    commercialUse: { value: 'Allowed-With-One-Time-Fee-0.1' },
+    dataModelTraining: { value: 'Disallowed' },
+    paymentMode: 'Single',
+    paymentAddress: 'uf_FqRvLqjnFMc8ZzGkF4qWKuNmUIQcYP0tPlCGORQk',
+    currency: 'xU9zFkq3X2ZQ6olwNVvr1vUWIjc3kXTWr7xKQD6dh10'
+  },
+  creator: 'SaXnsUgxJLkJRghWQOUs9-wB0npVviewTkUbh2Yk64M',
+  collectionId: 'XcfPzHzxt2H8FC03MAC_78U1YwO9Gdk72spbq70NuNc',
+  implementation: 'ANS-110',
+  dateCreated: 1717663091000,
+  blockHeight: 1439467,
+  ticker: 'ATOMIC',
+  denomination: '1',
+  balances: {
+    'SaXnsUgxJLkJRghWQOUs9-wB0npVviewTkUbh2Yk64M': '1',
+    cfQOZc7saMMizHtBKkBoF_QuH5ri0Bmb5KSf_kxQsZE: '1',
+    U3TjJAZWJjlWBB4KAXSHKzuky81jtyh0zqH8rUL4Wd0: '98'
+  },
+  transferable: true
+}
 ```

@@ -97,7 +97,7 @@ export async function aoMessageResult(args: MessageResultType): Promise<any> {
 			const response: { [key: string]: any } = {};
 
 			Messages.forEach((message: any) => {
-				const action = getTagValue(message.Tags, 'Action') || args.messageAction;
+				const action = getTagValue(message.Tags, 'Action') || args.action;
 
 				let responseData = null;
 				const messageData = message.Data;
@@ -281,7 +281,7 @@ async function handleProcessEval(args: {
 			const evalResult = await aoMessageResult({
 				processId: args.processId,
 				messageId: evalMessage,
-				messageAction: 'Eval',
+				action: 'Eval',
 			});
 
 			return evalResult;
