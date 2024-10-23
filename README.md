@@ -1,31 +1,89 @@
-# AO Permaweb
+# @permaweb/sdk
 
-This monorepo contains various services and protocols for interacting with the Permaweb. Below is an overview of the included services and protocols.
+This is the home of multiple building blocks that can be used to develop applications on the permaweb. Interactions with these building blocks are available via **@permaweb/sdk**
 
-## Services / Protocols
+## Prerequisites
 
-### 1. Personal Processes
+- `node >= v18.0`
+- `npm` or `yarn`
 
-A Personal Process, or Zone, is a user's highly configurable and customizable AO Process that supports a wide range of functionality across the AO and Arweave Permaweb. The goal is to design and use installable AO Package Manager (APM) packages that enable the different capabilities and features.
+## Installation
 
-### 2. Assets
+`npm install @permaweb/sdk`
 
-This service allows you to create and fetch assets on the Permaweb. It provides APIs to upload new assets and retrieve existing ones.
+or
 
-### 3. Collections
+`yarn add @permaweb/sdk`
 
-The collections service enables you to group assets into collections. This can be useful for organizing related assets and managing them as a single entity.
+## Usage
 
-## SDK
+### Zones
 
-An SDK is provided to expose all of the functionality of the services and protocols mentioned above. This SDK allows for easy integration with other applications and services.
+Zones are a representation of an entity which contains information relevant to that entity and can carry out actions on that entity's behalf.
 
-## Packages
+- `createZone() -> <ZoneId>`
+- `getZone({ ZoneId }) -> <Zone>`
 
-### 1. Key-Value Store
+### Atomic Assets
 
-The key-value store package provides a way to store and retrieve key-value pairs inside AO processes.
+Atomic assets are unique digital item consisting of an AO process and its associated data which are stored together in a single transaction on Arweave.
 
-### 2. Asset Manager
+#### `createAtomicAsset({ Args }) -> <AssetId>`
 
-The asset manager package provides a way to manage assets on the Permaweb.
+Creates an atomic asset ([View implementation](./sdk/src/services/assets.ts#L6)).
+
+```typescript
+import { createAtomicAsset } from '@permaweb/sdk';
+
+const assetId = await createAtomicAsset({
+    title: 'Example Title',
+    description, 'Example Description',
+    type: 'Example Atomic Asset Type',
+    topics: ['Topic 1', 'Topic 2', 'Topic 3'],
+    contentType: 'text/html',
+    data: '1234'
+});
+```
+
+**Response**
+
+```typescript
+TxId
+```
+
+#### `getAtomicAsset({ AssetId }) -> <Asset>`
+
+Performs a lookup of the atomic asset by ID ([View implementation](./sdk/src/services/assets.ts#L50)).
+
+```typescript
+import { getAtomicAsset } from "@permaweb/sdk";
+
+const asset = await getAtomicAsset(AssetTxId);
+```
+
+**Response**
+
+```typescript
+ {
+    id: 'TxId',
+    title: 'Example Atomic Asset',
+    description: 'Example Atomic Asset Description',
+    dateCreated: 1678901234567,
+    blockHeight: 1234567,
+    renderWith: 'render-app',
+    thumbnail: 'ThumbnailTxId',
+    implementation: 'atomic-asset-v1',
+    creator: 'ArweaveAddress',
+    collectionId: 'CollectionTxId',
+    contentType: 'text/html',
+    udl: {
+      access: { value: 'One-Time-0.5' },
+      derivations: { value: 'Allowed-With-Credit-0.5' },
+      commercialUse: { value: 'Allowed' },
+      dataModelTraining: { value: 'Not-Allowed' },
+      paymentMode: 'Global-Amount',
+      paymentAddress: 'ArweaveAddress',
+      currency: 'AR',
+    }
+ }
+```

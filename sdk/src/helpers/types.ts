@@ -49,7 +49,39 @@ export type AssetCreateArgsType = {
 	creator?: string;
 	collectionId?: string;
 	supply?: number;
+	denomination?: number;
 	transferable?: boolean;
+};
+
+export type AssetType = {
+	id: string;
+	title: string;
+	description: string | null;
+	dateCreated: number;
+	blockHeight: number;
+	renderWith: string | null;
+	thumbnail: string | null;
+	implementation: string | null;
+	creator: string;
+	collectionId?: string | null;
+	contentType?: string | null;
+	udl: UDLicenseType | null;
+};
+
+export type UDLicenseType = {
+	access: UDLicenseValueType | null;
+	derivations: UDLicenseValueType | null;
+	commercialUse: UDLicenseValueType | null;
+	dataModelTraining: UDLicenseValueType | null;
+	paymentMode: string | null;
+	paymentAddress: string | null;
+	currency: string | null;
+};
+
+export type UDLicenseValueType = {
+	value: string | null;
+	icon?: string;
+	endText?: string;
 };
 
 export type BaseGQLArgsType = {
