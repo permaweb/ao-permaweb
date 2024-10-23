@@ -1477,10 +1477,9 @@ if not Zone.zoneKV then Zone.zoneKV = KV.new({ BatchPlugin }) end
 if not Zone.assetManager then Zone.assetManager = AssetManager.new() end
 if not ZoneInitCompleted then ZoneInitCompleted = false end
 
--- handlers
-Zone.H_ROLE_SET = H_ROLE_SET
-Zone.H_PROFILE_ERROR = "Zone-Metadata.Error"
-Zone.H_PROFILE_SUCCESS = "Zone-Metadata.Success"
+-- action handler and notice names
+Zone.N_PROFILE_ERROR = "Profile.Error"
+Zone.N_PROFILE_SUCCESS = "Profile.Success"
 Zone.H_INFO = "Zone-Info"
 Zone.H_PROFILE_GET = "Get-Profile"
 Zone.H_PROFILE_UPDATE = "Update-Profile"
