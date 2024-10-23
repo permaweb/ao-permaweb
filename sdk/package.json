@@ -1,6 +1,6 @@
 {
 	"name": "@permaweb/sdk",
-	"version": "1.0.0",
+	"version": "0.0.01",
 	"description": "",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",

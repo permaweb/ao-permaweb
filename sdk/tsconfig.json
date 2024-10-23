@@ -11,9 +11,9 @@
 		"moduleResolution": "Node",
 		"lib": ["dom", "dom.iterable", "esnext"],
 		"paths": {
-			"types/*": ["types/*"],
 			"common/*": ["common/*"],
-			"zone/*": ["zone/*"]
+			"helpers/*": ["helpers/*"],
+			"services/*": ["services/*"]
 		}
 	},
 	"include": ["src"],

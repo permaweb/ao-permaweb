@@ -7,7 +7,16 @@ import {
 	QueryBodyGQLArgsType,
 } from 'types/gql';
 
-import { CURSORS, GATEWAYS, PAGINATORS } from '../helpers';
+import { GATEWAYS } from 'helpers';
+
+const CURSORS = {
+	p1: 'P1',
+	end: 'END',
+};
+
+const PAGINATORS = {
+	default: 100,
+};
 
 export async function getGQLData(args: GQLArgsType): Promise<DefaultGQLResponseType> {
 	const paginator = args.paginator ? args.paginator : PAGINATORS.default;

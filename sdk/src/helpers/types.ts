@@ -1,4 +1,56 @@
-import { TagFilterType, TagType } from 'types/helpers';
+export type ProcessSpawnType = {
+	module: string;
+	scheduler: string;
+	data: any;
+	tags: TagType[];
+	wallet: any;
+};
+
+export type ProcessCreateType = {
+	module?: string;
+	scheduler?: string;
+	spawnData?: any;
+	spawnTags?: TagType[];
+	evalTags?: TagType[];
+	evalTxId?: string;
+	evalSrc?: string;
+	wallet: any;
+};
+
+export type MessageSendType = {
+	processId: string;
+	wallet: any;
+	action: string;
+	tags: TagType[] | null;
+	data: any;
+	useRawData?: boolean;
+};
+
+export type MessageResultType = {
+	messageId: string;
+	processId: string;
+	messageAction: string;
+};
+
+export type MessageDryRunType = {
+	processId: string;
+	action: string;
+	tags?: TagType[] | null;
+	data?: string | object;
+};
+
+export type AssetCreateArgsType = {
+	title: string;
+	description: string;
+	type: string;
+	topics: string[];
+	contentType: string;
+	data: any;
+	creator?: string;
+	collectionId?: string;
+	supply?: number;
+	transferable?: boolean;
+};
 
 export type BaseGQLArgsType = {
 	ids?: string[] | null;
@@ -51,3 +103,7 @@ export type DefaultGQLResponseType = {
 } & GQLResponseType;
 
 export type BatchAGQLResponseType = { [queryKey: string]: DefaultGQLResponseType };
+
+export type TagType = { name: string; value: string };
+
+export type TagFilterType = { name: string; values: string[]; match?: string };

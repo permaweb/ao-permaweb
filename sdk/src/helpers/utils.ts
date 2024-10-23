@@ -1,5 +1,3 @@
-import { DateType } from 'types/helpers';
-
 declare const InstallTrigger: any;
 
 export function checkValidAddress(address: string | null) {
@@ -84,7 +82,7 @@ export function formatPercentage(percentage: any) {
 	return `${multiplied.toFixed(nonZeroIndex)}%`;
 }
 
-export function formatDate(dateArg: string | number | null, dateType: DateType, fullTime?: boolean) {
+export function formatDate(dateArg: string | number | null, dateType: 'iso' | 'epoch', fullTime?: boolean) {
 	if (!dateArg) {
 		return null;
 	}
