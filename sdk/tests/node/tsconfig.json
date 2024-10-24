@@ -1,0 +1,7 @@
+{
+	"compilerOptions": {
+	  "types": ["node"],
+	  "module": "commonjs",
+	  "esModuleInterop": true
+	}
+  }

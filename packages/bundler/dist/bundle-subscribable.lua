@@ -1126,14 +1126,15 @@ package.loaded["subscribable"] = newmodule
 
 table.insert(ao.authorities, 'fcoN_xJeisVsPXA-trzVAuIiqO3ydLQxM-L4XbrQKzY')
 Handlers.prepend("isTrusted",
-        function (msg)
-            return msg.From ~= msg.Owner and not ao.isTrusted(msg)
-        end,
-        function (msg)
-            Send({Target = msg.From, Data = "Message is not trusted."})
-            print("Message is not trusted. From: " .. msg.From .. " - Owner: " .. msg.Owner)
-        end
+    function(msg)
+        return msg.From ~= msg.Owner and not ao.isTrusted(msg)
+    end,
+    function(msg)
+        Send({ Target = msg.From, Data = "Message is not trusted." })
+        print("Message is not trusted. From: " .. msg.From .. " - Owner: " .. msg.Owner)
+    end
 )
+
  -- ENDFILE 
 
 
@@ -1144,95 +1145,98 @@ Handlers.prepend("isTrusted",
 -- ================================================================================
 -- ================================================================================
 local function load_kv()
+local KVPackageName = "@permaweb/kv-base"
+local KV = {}
 
+KV.__index = KV
 
+function KV.new(plugins)
+    if type(plugins) ~= "table" and type(plugins) ~= "nil" then
+        print("invalid plugins")
+        error("Invalid plugins arg, must be table or nil")
+    end
 
+    local self = setmetatable({}, KV)
 
-    local KVPackageName = "@permaweb/kv-base"
-    local KV = {}
-
-    KV.__index = KV
-
-    function KV.new(plugins)
-
-        if type(plugins) ~= "table" and type(plugins) ~= "nil" then
-            print("invalid plugins")
-            error("Invalid plugins arg, must be table or nil")
-        end
-
-        local self = setmetatable({}, KV)
-
-        if plugins and type(plugins) == "table" then
-            for _, plugin in ipairs(plugins) do
-                if type(plugin) == "table" and plugin.register then
-                    plugin.register(self)
-                end
+    if plugins and type(plugins) == "table" then
+        for _, plugin in ipairs(plugins) do
+            if type(plugin) == "table" and plugin.register then
+                plugin.register(self)
             end
         end
-        self.store = {}
-        return self
+    end
+    self.store = {}
+    return self
+end
+
+function KV:dump()
+    local copy = {}
+    for k, v in pairs(self.store) do
+        copy[k] = v
+    end
+    return copy
+end
+
+function KV:get(keyString)
+    return self.store[keyString]
+end
+
+function KV:set(keyString, value)
+    self.store[keyString] = value
+end
+
+function KV:len()
+    local count = 0
+    for _ in pairs(self.store) do
+        count = count + 1
+    end
+    return count
+end
+
+function KV:del(keyString)
+    self.store[keyString] = nil
+end
+
+function KV:keys()
+    local keys = {}
+    for k, _ in pairs(self.store) do
+        table.insert(keys, k)
+    end
+    return keys
+end
+
+function KV:registerPlugin(pluginName, pluginFunction)
+    if type(pluginName) ~= "string" or type(pluginFunction) ~= "function" then
+        error("Invalid plugin name or function")
+    end
+    if self[pluginName] then
+        error(pluginName .. " already exists")
     end
 
-    function KV:get(keyString)
-        return self.store[keyString]
-    end
+    self[pluginName] = pluginFunction
+end
 
-    function KV:set(keyString, value)
-        self.store[keyString] = value
-    end
-
-    function KV:len()
-        local count = 0
-        for _ in pairs(self.store) do
-            count = count + 1
+function KV.filter_store(store, fn)
+    local results = {}
+    for k, v in pairs(store) do
+        if fn(k, v) then
+            results[k] = v
         end
-        return count
     end
+    return results
+end
 
-    function KV:del(keyString)
-        self.store[keyString] = nil
-    end
+function KV.starts_with(str, prefix)
+    return str:sub(1, #prefix) == prefix
+end
 
-    function KV:keys()
-        local keys = {}
-        for k, _ in pairs(self.store) do
-            table.insert(keys, k)
-        end
-        return keys
-    end
+function KV:getPrefix(str)
+    return KV.filter_store(self.store, function(k, _)
+        return KV.starts_with(k, str)
+    end)
+end
 
-    function KV:registerPlugin(pluginName, pluginFunction)
-        if type(pluginName) ~= "string" or type(pluginFunction) ~= "function" then
-            error("Invalid plugin name or function")
-        end
-        if self[pluginName] then
-           error(pluginName .. " already exists" )
-        end
-
-        self[pluginName] = pluginFunction
-    end
-
-    function KV.filter_store(store, fn)
-        local results = {}
-        for k, v in pairs(store) do
-            if fn(k, v) then
-                results[k] = v
-            end
-        end
-        return results
-    end
-
-    function KV.starts_with(str, prefix)
-        return str:sub(1, #prefix) == prefix
-    end
-
-    function KV:getPrefix(str)
-        return KV.filter_store(self.store, function(k, _)
-            return KV.starts_with(k, str)
-        end)
-    end
-    return KV
-
+return KV
 end
 package.loaded['@permaweb/kv-base'] = load_kv()
 
@@ -1304,6 +1308,8 @@ package.loaded['@permaweb/kv-batch'] = load_batch()
 -- ================================================================================
 -- ================================================================================
 local function load_asset_manager()
+local bint = require('.bint')(256)
+
 local AssetManagerPackageName = '@permaweb/asset-manager'
 
 local AssetManager = {}
@@ -1371,6 +1377,8 @@ function AssetManager:get()
 end
 
 function AssetManager:update(args)
+    print('Running asset update...')
+
     if not check_required_args(args, { 'Type', 'AssetId', 'Timestamp' }) then
         return
     end
@@ -1388,7 +1396,7 @@ function AssetManager:update(args)
     print('Reading balance...')
     Send({ Target = args.AssetId, Action = 'Balance', Recipient = ao.id, Data = json.encode({ Target = ao.id }) })
 
-    local balance_result = Receive({ From = args.AssetId, Action = 'Balance-Notice' })
+    local balance_result = Receive({ From = args.AssetId })
 
     print('Balance received')
     print('Balance: ' .. balance_result.Data)
@@ -1410,10 +1418,10 @@ function AssetManager:update(args)
             print('Adding new asset...')
 
             table.insert(self.assets, {
-                Id = args.AssetId,
-                Quantity = utils.to_balance_value(balance_result.Data),
-                DateCreated = args.Timestamp,
-                LastUpdate = args.Timestamp
+                id = args.AssetId,
+                quantity = utils.to_balance_value(balance_result.Data),
+                dateCreated = args.Timestamp,
+                lastUpdate = args.Timestamp
             })
 
             print('Asset added')
@@ -1451,38 +1459,39 @@ package.loaded['@permaweb/asset-manager'] = load_asset_manager()
 -- ================================================================================
 -- ================================================================================
 local function load_zone()
-local KV = require("@permaweb/kv-base")
+local KV = require('@permaweb/kv-base')
 if not KV then
-    error("KV Not found, install it")
+    error('KV Not found, install it')
 end
 
-local BatchPlugin = require("@permaweb/kv-batch")
+local BatchPlugin = require('@permaweb/kv-batch')
 if not BatchPlugin then
-    error("BatchPlugin not found, install it")
+    error('BatchPlugin not found, install it')
 end
 
-local AssetManager = require("@permaweb/asset-manager")
+local AssetManager = require('@permaweb/asset-manager')
 if not AssetManager then
-    error("AssetManager not found, install it")
+    error('AssetManager not found, install it')
 end
 
 local Subscribable = require 'subscribable' ({
     useDB = false
 })
 
-
-
 if not Zone then Zone = {} end
 if not Zone.zoneKV then Zone.zoneKV = KV.new({ BatchPlugin }) end
 if not Zone.assetManager then Zone.assetManager = AssetManager.new() end
 if not ZoneInitCompleted then ZoneInitCompleted = false end
 
--- action handler and notice names
-Zone.N_PROFILE_ERROR = "Profile.Error"
-Zone.N_PROFILE_SUCCESS = "Profile.Success"
-Zone.H_INFO = "Zone-Info"
-Zone.H_PROFILE_GET = "Get-Profile"
-Zone.H_PROFILE_UPDATE = "Update-Profile"
+-- Action handler and notice names
+Zone.H_ZONE_ERROR = 'Zone.Error'
+Zone.H_ZONE_SUCCESS = 'Zone.Success'
+
+Zone.H_ZONE_GET = 'Info'
+Zone.H_ZONE_UPDATE = 'Update-Zone'
+Zone.H_ZONE_CREDIT_NOTICE = 'Credit-Notice'
+Zone.H_ZONE_DEBIT_NOTICE = 'Debit-Notice'
+Zone.H_ZONE_RUN_ACTION = 'Run-Action'
 
 function Zone.decodeMessageData(data)
     local status, decodedData = pcall(json.decode, data)
@@ -1494,46 +1503,53 @@ function Zone.decodeMessageData(data)
 end
 
 function Zone.isAuthorized(msg)
-    if msg.From == Owner then
+    if msg.From == Owner or msg.From == ao.id then
         return true
     end
     return false
 end
 
-function Zone.hello()
-    print("Hello zone")
+function Zone.zoneGet(msg)
+    msg.reply({
+        Target = msg.From,
+        Action = Zone.H_ZONE_SUCCESS,
+        Data = json.encode({
+            store = Zone.zoneKV:dump(),
+            assets = Zone.assetManager.assets
+        })
+    })
 end
 
-function Zone.profileUpdate(msg)
+function Zone.zoneUpdate(msg)
     if Zone.isAuthorized(msg) ~= true then
         ao.send({
             Target = msg.From,
-            Action = Zone.H_PROFILE_ERROR,
+            Action = Zone.H_ZONE_ERROR,
             Tags = {
                 Status = 'Error',
-                Message =
-                'Not Authorized'
+                Message = 'Not Authorized'
             }
         })
         return
     end
+
     local decodeCheck, data = Zone.decodeMessageData(msg.Data)
+
     if not decodeCheck then
         ao.send({
             Target = msg.From,
-            Action = Zone.H_PROFILE_ERROR,
+            Action = Zone.H_ZONE_ERROR,
             Tags = {
                 Status = 'Error',
-                Message =
-                'Invalid Data'
+                Message = 'Invalid Data'
             }
         })
         return
     end
 
-    local entries = data.entries
+    local entries = data and data.entries
 
-    if #entries then
+    if entries and #entries then
         for _, entry in ipairs(entries) do
             if entry.key and entry.value then
                 Zone.zoneKV:set(entry.key, entry.value)
@@ -1541,95 +1557,80 @@ function Zone.profileUpdate(msg)
         end
         ao.send({
             Target = msg.From,
-            Action = Zone.H_PROFILE_SUCCESS,
+            Action = Zone.H_ZONE_SUCCESS,
         })
-        Subscribable.notifySubscribers(Zone.H_PROFILE_UPDATE, { UpdateTx = msg.Id })
+        Subscribable.notifySubscribers(Zone.H_ZONE_UPDATE, { UpdateTx = msg.Id })
         return
     end
 end
 
-function Zone.profileGet(msg)
-    local decodeCheck, data = Zone.decodeMessageData(msg.Data)
-    if not decodeCheck then
-        ao.send({
-            Target = msg.From,
-            Action = Zone.H_PROFILE_ERROR,
-            Tags = {
-                Status = 'Error',
-                Message =
-                'Invalid Data'
-            }
-        })
-        return
-    end
-
-    local keys = data.keys
-
-    if not keys then
-        error("no keys")
-    end
-
-    if keys then
-        local results = {}
-        for _, k in ipairs(keys) do
-            results[k] = Zone.zoneKV:get(k)
-        end
-        ao.send({
-            Target = msg.From,
-            Action = Zone.H_PROFILE_SUCCESS,
-            Data = json.encode({ Results = results })
-        })
-    end
-end
-
-Handlers.add(
-    Zone.H_PROFILE_UPDATE,
-    Handlers.utils.hasMatchingTag("Action", Zone.H_PROFILE_UPDATE),
-    Zone.profileUpdate
-)
-
-Handlers.add(
-    Zone.H_PROFILE_GET,
-    Handlers.utils.hasMatchingTag("Action", Zone.H_PROFILE_GET),
-    Zone.profileGet
-)
-
-Handlers.add('Credit-Notice', 'Credit-Notice', function(msg)
+function Zone.creditNotice(msg)
     Zone.assetManager:update({
         Type = 'Add',
         AssetId = msg.From,
         Timestamp = msg.Timestamp
     })
-end)
+end
 
--- Register: Tags.Topics = "{"topic","topic2}"
--- Tags.Subscriber-Process-Id = "123"
-
-Handlers.add(
-        "Register-Whitelisted-Subscriber",
-        Handlers.utils.hasMatchingTag("Action", "Register-Whitelisted-Subscriber"),
-        Subscribable.handleRegisterWhitelistedSubscriber
-)
-
-Handlers.add('Debit-Notice', 'Debit-Notice', function(msg)
+function Zone.debitNotice(msg)
     Zone.assetManager:update({
         Type = 'Remove',
         AssetId = msg.From,
         Timestamp = msg.Timestamp
     })
-end)
+end
+
+function Zone.runAction(msg)
+    if Zone.isAuthorized(msg) ~= true then
+        msg.reply({
+            Action = Zone.H_ZONE_ERROR,
+            Tags = {
+                Status = 'Error',
+                Message = 'Not Authorized'
+            }
+        })
+        return
+    end
+
+    if not msg.ForwardTo or not msg.ForwardAction then
+        ao.send({
+            Target = msg.From,
+            Action = 'Input-Error',
+            Tags = {
+                Status = 'Error',
+                Message = 'Invalid arguments, required { ForwardTo, ForwardAction }'
+            }
+        })
+        return
+    end
+
+    ao.send({
+        Target = msg.ForwardTo,
+        Action = msg.ForwardAction,
+        Data = msg.Data,
+        Tags = msg.Tags
+    })
+end
+
+Handlers.add(Zone.H_ZONE_GET, Zone.H_ZONE_GET, Zone.zoneGet)
+Handlers.add(Zone.H_ZONE_UPDATE, Zone.H_ZONE_UPDATE, Zone.zoneUpdate)
+Handlers.add(Zone.H_ZONE_CREDIT_NOTICE, Zone.H_ZONE_CREDIT_NOTICE, Zone.creditNotice)
+Handlers.add(Zone.H_ZONE_DEBIT_NOTICE, Zone.H_ZONE_DEBIT_NOTICE, Zone.creditNotice)
+Handlers.add(Zone.H_ZONE_RUN_ACTION, Zone.H_ZONE_RUN_ACTION, Zone.runAction)
+
+Handlers.add(
+    'Register-Whitelisted-Subscriber',
+    Handlers.utils.hasMatchingTag('Action', 'Register-Whitelisted-Subscriber'),
+    Subscribable.handleRegisterWhitelistedSubscriber
+)
 
 Subscribable.configTopicsAndChecks({
-    ['Update-Profile'] = {
-        -- omit below because we're calling notifySubscribers directly
-        -- checkFn = checkForProfileUpdate,
-        -- payloadFn = payloadForProfileUpdate,
-        description = 'Profile Updated',
+    ['Update-Zone'] = {
+        description = 'Zone updated',
         returns = '{ "UpdateTx" : string }',
-        subscriptionBasis = "Whitelisting"
+        subscriptionBasis = 'Whitelisting'
     },
 })
-
 
 if not ZoneInitCompleted then
     ZoneInitCompleted = true

@@ -1,3 +1,5 @@
+local bint = require('.bint')(256)
+
 local AssetManagerPackageName = '@permaweb/asset-manager'
 
 local AssetManager = {}
@@ -65,6 +67,8 @@ function AssetManager:get()
 end
 
 function AssetManager:update(args)
+    print('Running asset update...')
+
     if not check_required_args(args, { 'Type', 'AssetId', 'Timestamp' }) then
         return
     end
@@ -82,7 +86,7 @@ function AssetManager:update(args)
     print('Reading balance...')
     Send({ Target = args.AssetId, Action = 'Balance', Recipient = ao.id, Data = json.encode({ Target = ao.id }) })
 
-    local balance_result = Receive({ From = args.AssetId, Action = 'Balance-Notice' })
+    local balance_result = Receive({ From = args.AssetId })
 
     print('Balance received')
     print('Balance: ' .. balance_result.Data)
@@ -104,10 +108,10 @@ function AssetManager:update(args)
             print('Adding new asset...')
 
             table.insert(self.assets, {
-                Id = args.AssetId,
-                Quantity = utils.to_balance_value(balance_result.Data),
-                DateCreated = args.Timestamp,
-                LastUpdate = args.Timestamp
+                id = args.AssetId,
+                quantity = utils.to_balance_value(balance_result.Data),
+                dateCreated = args.Timestamp,
+                lastUpdate = args.Timestamp
             })
 
             print('Asset added')

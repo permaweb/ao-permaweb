@@ -21,15 +21,15 @@ export type MessageSendType = {
 	processId: string;
 	wallet: any;
 	action: string;
-	tags: TagType[] | null;
-	data: any;
+	tags?: TagType[] | null;
+	data?: any;
 	useRawData?: boolean;
 };
 
 export type MessageResultType = {
 	messageId: string;
 	processId: string;
-	messageAction: string;
+	action: string;
 };
 
 export type MessageDryRunType = {
@@ -49,7 +49,51 @@ export type AssetCreateArgsType = {
 	creator?: string;
 	collectionId?: string;
 	supply?: number;
+	denomination?: number;
 	transferable?: boolean;
+};
+
+export type AssetHeaderType = {
+	id: string;
+	owner: string | null;
+	creator: string | null;
+	title: string | null;
+	description: string | null;
+	type: string | null;
+	topics: string[] | null;
+	implementation: string | null;
+	contentType: string | null;
+	renderWith: string | null;
+	thumbnail: string | null;
+	udl: UDLicenseType | null;
+	collectionId: string | null;
+	dateCreated: number | null;
+	blockHeight: number | null;
+};
+
+export type AssetStateType = {
+	ticker: string | null;
+	denomination: string | null;
+	balances: { [key: string]: string } | null;
+	transferable: boolean | null;
+}
+
+export type AssetDetailType = AssetHeaderType & AssetStateType;
+
+export type UDLicenseType = {
+	access: UDLicenseValueType | null;
+	derivations: UDLicenseValueType | null;
+	commercialUse: UDLicenseValueType | null;
+	dataModelTraining: UDLicenseValueType | null;
+	paymentMode: string | null;
+	paymentAddress: string | null;
+	currency: string | null;
+};
+
+export type UDLicenseValueType = {
+	value: string | null;
+	icon?: string;
+	endText?: string;
 };
 
 export type BaseGQLArgsType = {
@@ -80,15 +124,13 @@ export type GQLNodeResponseType = {
 			size: string;
 			type: string;
 		};
-		block?: {
+		owner: {
+			address: string;
+		};
+		block: {
 			height: number;
 			timestamp: number;
 		};
-		owner?: {
-			address: string;
-		};
-		address?: string;
-		timestamp?: number;
 	};
 };
 

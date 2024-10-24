@@ -2,13 +2,17 @@ local bint = require('.bint')(256)
 local json = require('json')
 
 if Name ~= '<NAME>' then Name = '<NAME>' end
-if Collection ~= '<COLLECTION>' then Collection = '<COLLECTION>' end
-if Creator ~= '<CREATOR>' then Creator = '<CREATOR>' end
-if Ticker ~= '<TICKER>' then Ticker = '<TICKER>' end
-if Denomination ~= '<DENOMINATION>' then Denomination = '<DENOMINATION>' end
-if not Balances then Balances = { ['<CREATOR>'] = '<BALANCE>' } end
+
+Creator = Creator or '<CREATOR>'
+Ticker = Ticker or '<TICKER>'
+Denomination = Denomination or '<DENOMINATION>'
+TotalSupply = TotalSupply or '<SUPPLY>'
+Balances = Balances or { ['<CREATOR>'] = '<SUPPLY>' }
+Collection = Collection or '<COLLECTION>'
 
 Transferable = true
+
+table.insert(ao.authorities, 'fcoN_xJeisVsPXA-trzVAuIiqO3ydLQxM-L4XbrQKzY')
 
 local function checkValidAddress(address)
 	if not address or type(address) ~= 'string' then
@@ -34,13 +38,15 @@ end
 
 -- Read process state
 Handlers.add('Info', Handlers.utils.hasMatchingTag('Action', 'Info'), function(msg)
-	ao.send({
-		Target = msg.From,
-		Action = 'Read-Success',
+	msg.reply({
+		Name = Name,
+		Ticker = Ticker,
+		Denomination = tostring(Denomination),
+		Transferable = Transferable,
 		Data = json.encode({
 			Name = Name,
 			Ticker = Ticker,
-			Denomination = Denomination,
+			Denomination = tostring(Denomination),
 			Balances = Balances,
 			Transferable = Transferable
 		})
@@ -50,7 +56,7 @@ end)
 -- Transfer balance to recipient (Data - { Recipient, Quantity })
 Handlers.add('Transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), function(msg)
 	if not Transferable and msg.From ~= ao.id then
-		ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Transfers are not allowed' } })
+		msg.reply({ Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Transfers are not allowed' } })
 		return
 	end
 
@@ -59,7 +65,7 @@ Handlers.add('Transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), fu
 		Quantity = msg.Tags.Quantity
 	}
 
-	if checkValidAddress(data.Recipient) and checkValidAmount(data.Quantity) then
+	if checkValidAddress(data.Recipient) and checkValidAmount(data.Quantity) and bint(data.Quantity) <= bint(Balances[msg.From]) then
 		-- Transfer is valid, calculate balances
 		if not Balances[msg.From] then
 			Balances[msg.From] = '0'
@@ -73,10 +79,10 @@ Handlers.add('Transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), fu
 		Balances[data.Recipient] = tostring(bint(Balances[data.Recipient]) + bint(data.Quantity))
 
 		-- If new balance zeroes out then remove it from the table
-		if bint(Balances[msg.From]) <= 0 then
+		if bint(Balances[msg.From]) <= bint(0) then
 			Balances[msg.From] = nil
 		end
-		if bint(Balances[data.Recipient]) <= 0 then
+		if bint(Balances[data.Recipient]) <= bint(0) then
 			Balances[data.Recipient] = nil
 		end
 
@@ -132,19 +138,19 @@ Handlers.add('Mint', Handlers.utils.hasMatchingTag('Action', 'Mint'), function(m
 	if decodeCheck and data then
 		-- Check if quantity is present
 		if not data.Quantity then
-			ao.send({ Target = msg.From, Action = 'Input-Error', Tags = { Status = 'Error', Message = 'Invalid arguments, required { Quantity }' } })
+			msg.reply({ Action = 'Input-Error', Tags = { Status = 'Error', Message = 'Invalid arguments, required { Quantity }' } })
 			return
 		end
 
 		-- Check if quantity is a valid integer greater than zero
 		if not checkValidAmount(data.Quantity) then
-			ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Quantity must be an integer greater than zero' } })
+			msg.reply({ Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Quantity must be an integer greater than zero' } })
 			return
 		end
 
 		-- Check if owner is sender
 		if msg.From ~= Owner then
-			ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Only the process owner can mint new tokens' } })
+			msg.reply({ Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Only the process owner can mint new tokens' } })
 			return
 		end
 
@@ -155,10 +161,9 @@ Handlers.add('Mint', Handlers.utils.hasMatchingTag('Action', 'Mint'), function(m
 
 		Balances[Owner] = tostring(bint(Balances[Owner]) + bint(data.Quantity))
 
-		ao.send({ Target = msg.From, Action = 'Mint-Success', Tags = { Status = 'Success', Message = 'Tokens minted' } })
+		msg.reply({ Action = 'Mint-Success', Tags = { Status = 'Success', Message = 'Tokens minted' } })
 	else
-		ao.send({
-			Target = msg.From,
+		msg.reply({
 			Action = 'Input-Error',
 			Tags = {
 				Status = 'Error',
@@ -184,20 +189,19 @@ Handlers.add('Balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), func
 	if data then
 		-- Check if target is present
 		if not data.Target then
-			ao.send({ Target = msg.From, Action = 'Input-Error', Tags = { Status = 'Error', Message = 'Invalid arguments, required { Target }' } })
+			msg.reply({ Action = 'Input-Error', Tags = { Status = 'Error', Message = 'Invalid arguments, required { Target }' } })
 			return
 		end
 
 		-- Check if target is a valid address
 		if not checkValidAddress(data.Target) then
-			ao.send({ Target = msg.From, Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Target is not a valid address' } })
+			msg.reply({ Action = 'Validation-Error', Tags = { Status = 'Error', Message = 'Target is not a valid address' } })
 			return
 		end
 
 		local balance = Balances[data.Target] or '0'
 
-		ao.send({
-			Target = msg.From,
+		msg.reply({
 			Action = 'Balance-Notice',
 			Tags = {
 				Status = 'Success',
@@ -207,8 +211,7 @@ Handlers.add('Balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), func
 			Data = balance
 		})
 	else
-		ao.send({
-			Target = msg.From,
+		msg.reply({
 			Action = 'Input-Error',
 			Tags = {
 				Status = 'Error',
@@ -221,27 +224,25 @@ end)
 
 -- Read balances
 Handlers.add('Balances', Handlers.utils.hasMatchingTag('Action', 'Balances'),
-	function(msg) ao.send({ Target = msg.From, Action = 'Read-Success', Data = json.encode(Balances) }) end)
+	function(msg) msg.reply({ Data = json.encode(Balances) }) end)
 
--- Initialize a request to add the uploaded asset to a profile
-Handlers.add('Add-Asset-To-Profile', Handlers.utils.hasMatchingTag('Action', 'Add-Asset-To-Profile'), function(msg)
-	if checkValidAddress(msg.Tags.ProfileProcess) then
-		ao.send({
-			Target = msg.Tags.ProfileProcess,
-			Action = 'Add-Uploaded-Asset',
-			Data = json.encode({
-				Id = ao.id,
-				Quantity = msg.Tags.Quantity or '0'
-			})
-		})
-	else
-		ao.send({
-			Target = msg.From,
-			Action = 'Input-Error',
-			Tags = {
-				Status = 'Error',
-				Message = 'ProfileProcess tag not specified or not a valid Process ID'
-			}
-		})
-	end
+-- Read total supply of token
+Handlers.add('Total-Supply', Handlers.utils.hasMatchingTag('Action', 'Total-Supply'), function(msg)
+	assert(msg.From ~= ao.id, 'Cannot call Total-Supply from the same process!')
+
+	msg.reply({
+		Action = 'Total-Supply',
+		Data = tostring(TotalSupply),
+		Ticker = Ticker
+	})
+end)
+
+-- Initialize a request to add to creator zone
+Handlers.once('Add-Upload-To-Zone', 'Add-Upload-To-Zone', function(msg)
+	if msg.From ~= Creator and msg.From ~= Owner and msg.From ~= ao.id then return end
+	ao.send({
+		Target = Creator,
+		Action = 'Add-Upload',
+		AssetId = ao.id
+	})
 end)

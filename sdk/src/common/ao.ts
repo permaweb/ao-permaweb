@@ -28,7 +28,7 @@ export async function aoSpawn(args: ProcessSpawnType): Promise<any> {
 	return processId;
 }
 
-export async function aoSend(args: MessageSendType): Promise<any> {
+export async function aoSend(args: MessageSendType): Promise<string> {
 	try {
 		const tags: TagType[] = [{ name: 'Action', value: args.action }];
 		if (args.tags) tags.push(...args.tags);
@@ -43,8 +43,8 @@ export async function aoSend(args: MessageSendType): Promise<any> {
 		});
 
 		return txId;
-	} catch (e) {
-		console.error(e);
+	} catch (e: any) {
+		throw new Error(e);
 	}
 }
 
@@ -56,9 +56,9 @@ export async function aoDryRun(args: MessageDryRunType): Promise<any> {
 		if (typeof args.data === 'object') {
 			dataPayload = JSON.stringify(args.data || {});
 		} else if (typeof args.data === 'string') {
-			// try to parse json and throw an error if it can't
+			// Try to parse json and throw an error if it can't
 			try {
-				const jsonresult = JSON.parse(args.data);
+				JSON.parse(args.data);
 			} catch (e) {
 				console.error(e);
 				throw new Error('Invalid JSON data');
@@ -97,7 +97,7 @@ export async function aoMessageResult(args: MessageResultType): Promise<any> {
 			const response: { [key: string]: any } = {};
 
 			Messages.forEach((message: any) => {
-				const action = getTagValue(message.Tags, 'Action') || args.messageAction;
+				const action = getTagValue(message.Tags, 'Action') || args.action;
 
 				let responseData = null;
 				const messageData = message.Data;
@@ -234,11 +234,9 @@ async function waitForProcess(processId: string, _setStatus?: (status: any) => v
 		} else {
 			console.log(`Transaction not found: ${processId}`);
 			retries++;
-			// setStatus && setStatus(`Retry: ${retries}`);
 		}
 	}
 
-	// setStatus && setStatus('Error, not found');
 	throw new Error(`Process not found, please try again`);
 }
 
@@ -252,7 +250,6 @@ export async function fetchProcessSrc(txId: string): Promise<string> {
 }
 
 // TODO: Bootloader
-// TODO: Handle fetch / modification
 async function handleProcessEval(args: {
 	processId: string;
 	evalTxId: string | null;
@@ -281,7 +278,7 @@ async function handleProcessEval(args: {
 			const evalResult = await aoMessageResult({
 				processId: args.processId,
 				messageId: evalMessage,
-				messageAction: 'Eval',
+				action: 'Eval',
 			});
 
 			return evalResult;
