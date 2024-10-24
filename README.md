@@ -155,7 +155,7 @@ const asset = await getAtomicAsset(AssetTxId);
 }
 ```
 
-#### `getAtomicAssets({ ids: AssetTxId[] })`
+#### `getAtomicAssets`
 
 Performs a lookup of atomic assets. ([View implementation](./sdk/src/services/assets.ts#L50))
 
