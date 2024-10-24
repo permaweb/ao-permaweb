@@ -21,8 +21,8 @@ export type MessageSendType = {
 	processId: string;
 	wallet: any;
 	action: string;
-	tags: TagType[] | null;
-	data: any;
+	tags?: TagType[] | null;
+	data?: any;
 	useRawData?: boolean;
 };
 

@@ -1,4 +1,4 @@
-import { aoCreateProcess, aoDryRun, fetchProcessSrc } from 'common/ao';
+import { aoCreateProcess, aoDryRun, aoSend, fetchProcessSrc } from 'common/ao';
 import { getGQLData } from 'common/gql';
 
 import { AO, CONTENT_TYPES, GATEWAYS, LICENSES, TAGS } from 'helpers/config';
@@ -17,13 +17,12 @@ export async function createAtomicAsset(args: AssetCreateArgsType, wallet: any, 
 		processSrc = await fetchProcessSrc(AO.src.asset);
 
 		if (processSrc) {
-			processSrc = processSrc.replaceAll(`'<NAME>'`, args.title);
+			processSrc = processSrc.replaceAll(`'<NAME>'`, `[[${args.title}]]`);
+			processSrc = processSrc.replaceAll('<CREATOR>', args.creator ? args.creator : wallet.address);
 			processSrc = processSrc.replaceAll('<TICKER>', 'ATOMIC');
-
 			processSrc = processSrc.replaceAll('<DENOMINATION>', args.denomination ? args.denomination.toString() : '1');
-			processSrc = processSrc.replaceAll('<BALANCE>', args.supply ? args.supply.toString() : '1');
+			processSrc = processSrc.replaceAll('<SUPPLY>', args.supply ? args.supply.toString() : '1');
 
-			if (args.creator) processSrc = processSrc.replaceAll('<CREATOR>', args.creator);
 			if (args.collectionId) processSrc = processSrc.replaceAll('<COLLECTION>', args.collectionId);
 			if (!args.transferable) processSrc = processSrc.replace('Transferable = true', 'Transferable = false');
 		}
@@ -44,6 +43,15 @@ export async function createAtomicAsset(args: AssetCreateArgsType, wallet: any, 
 			},
 			(status) => callback(status),
 		);
+
+		const initMessage = await aoSend({
+			processId: assetId,
+			wallet: wallet,
+			action: 'Add-Upload-To-Zone'
+		});
+
+		console.log(`Init upload message: ${initMessage}`)
+
 		return assetId;
 	} catch (e: any) {
 		throw new Error(e);

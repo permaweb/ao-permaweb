@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 
-import { createAtomicAsset, createZone, getAtomicAsset, getZone } from '@permaweb/libs';
+import { createAtomicAsset, createZone, getAtomicAsset, getZone, updateZone } from '@permaweb/libs';
 
 function expect(actual: any) {
 	return {
@@ -62,7 +62,7 @@ function expect(actual: any) {
 }
 
 function logTest(message: string) {
-    console.log('\x1b[33m%s\x1b[0m', `\n${message}`);
+	console.log('\x1b[33m%s\x1b[0m', `\n${message}`);
 }
 
 function logError(message: string) {
@@ -74,6 +74,46 @@ async function runTests() {
 		console.log('Running tests...');
 		const wallet = JSON.parse(readFileSync('./wallets/wallet.json', 'utf-8'));
 
+		logTest('Testing zone creation...');
+		const zoneId = await createZone(wallet, (status: any) => console.log(`Callback: ${status}`));
+
+		expect(zoneId).toBeDefined();
+		expect(zoneId).toEqualType('string');
+
+		logTest('Testing zone fetch...');
+		let zone = await getZone(zoneId);
+
+		expect(zone).toBeDefined();
+		expect(zone).toEqual({ store: [], assets: [] });
+
+		logTest('Testing zone update...');
+		const zoneUpdateId = await updateZone({
+			zoneId: zoneId,
+			data: {
+				name: 'Sample Zone',
+				metadata: {
+					description: 'A test zone for unit testing',
+					version: '1.0.0'
+				}
+			}
+		}, wallet);
+
+		expect(zoneUpdateId).toBeDefined();
+		expect(zoneUpdateId).toEqualType('string');
+
+		zone = await getZone(zoneId);
+
+		expect(zone).toEqual({
+			store: {
+				name: 'Sample Zone',
+				metadata: {
+					description: 'A test zone for unit testing',
+					version: '1.0.0'
+				}
+			},
+			assets: []
+		});
+
 		logTest('Testing atomic asset creation...');
 		const assetId = await createAtomicAsset({
 			title: 'Test Asset',
@@ -82,8 +122,8 @@ async function runTests() {
 			topics: ['test', 'atomic', 'asset'],
 			contentType: 'text/plain',
 			data: '1234',
-			creator: 'testCreator',
-			collectionId: 'testCollection123',
+			creator: zoneId,
+			collectionId: 'CollectionId1234',
 			supply: 100,
 			denomination: 1,
 			transferable: true
@@ -91,7 +131,7 @@ async function runTests() {
 
 		expect(assetId).toBeDefined();
 		expect(assetId).toEqualType('string');
-		
+
 		logTest('Testing atomic asset fetch...');
 		const asset = await getAtomicAsset(assetId);
 
@@ -99,18 +139,6 @@ async function runTests() {
 		expect(asset.id).toEqual(assetId);
 		expect(asset.title).toEqual('Test Asset');
 		expect(asset.description).toEqual('This is a test atomic asset');
-
-		logTest('Testing zone creation...');
-		const zoneId = await createZone(wallet, (status: any) => console.log(`Callback: ${status}`));
-
-		expect(zoneId).toBeDefined();
-		expect(zoneId).toEqualType('string');
-
-		logTest('Testing zone fetch...');
-		const zone = await getZone(zoneId);
-
-		expect(zone).toBeDefined();
-		expect(zone).toEqual({ store: [], assets: [] })
 
 		console.log('All tests passed successfully!');
 	} catch (error) {

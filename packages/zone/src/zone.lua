@@ -73,6 +73,7 @@ function Zone.zoneUpdate(msg)
     end
 
     local decodeCheck, data = Zone.decodeMessageData(msg.Data)
+
     if not decodeCheck then
         ao.send({
             Target = msg.From,

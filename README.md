@@ -26,7 +26,7 @@ Zones are a representation of an entity which contains information relevant to t
 Creates a zone. ([View implementation](./sdk/src/services/zones.ts#L5))
 
 ```typescript
-import { createZone } from '@permaweb/libs';
+import { createZone } from "@permaweb/libs";
 
 const zoneId = await createZone(wallet, (status) => console.log(status));
 ```
@@ -34,15 +34,43 @@ const zoneId = await createZone(wallet, (status) => console.log(status));
 **Response**
 
 ```typescript
-ZoneProcessId
+ZoneProcessId;
+```
+
+#### `updateZone`
+
+Updates a zone's key value store. ([View implementation](./sdk/src/services/zones.ts#L21))
+
+```typescript
+import { updateZone } from "@permaweb/libs";
+
+const zoneUpdateId = await updateZone(
+  {
+    zoneId: zoneId,
+    data: {
+      name: 'Sample Zone',
+      metadata: {
+        description: 'A test zone for unit testing',
+        version: '1.0.0',
+      },
+    },
+  },
+  wallet
+);
+```
+
+**Response**
+
+```typescript
+ZoneUpdateId;
 ```
 
 #### `getZone`
 
-Fetches a zone. ([View implementation](./sdk/src/services/zones.ts#L20))
+Fetches a zone. ([View implementation](./sdk/src/services/zones.ts#L39))
 
 ```typescript
-import { getZone } from '@permaweb/libs';
+import { getZone } from "@permaweb/libs";
 
 const zone = await getZone(zoneId);
 ```
@@ -77,7 +105,7 @@ const assetId = await createAtomicAsset({
 **Response**
 
 ```typescript
-AssetProcessId
+AssetProcessId;
 ```
 
 #### `getAtomicAsset`
@@ -167,6 +195,6 @@ const assets = await getAtomicAssets({
     implementation: "ANS-110",
     dateCreated: 1717663091000,
     blockHeight: 1439467,
-  }
-]
+  },
+];
 ```
