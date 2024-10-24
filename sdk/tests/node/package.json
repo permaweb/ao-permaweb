@@ -2,14 +2,17 @@
   "name": "node",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "tests.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "tests": "ts-node tests.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@permaweb/sdk": "file:../.."
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.9"
   }
 }

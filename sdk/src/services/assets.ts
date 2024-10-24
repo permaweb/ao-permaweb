@@ -50,13 +50,10 @@ export async function createAtomicAsset(args: AssetCreateArgsType, wallet: any, 
 	}
 }
 
-// TODO: Get assets
-// TODO: Get ids by address
-
 export async function getAtomicAsset(id: string): Promise<AssetDetailType | null> {
 	try {
 		const gqlResponse = await getGQLData({
-			gateway: GATEWAYS.arweave,
+			gateway: GATEWAYS.goldsky,
 			ids: [id],
 			tagFilters: null,
 			owners: null,
@@ -117,6 +114,29 @@ export async function getAtomicAsset(id: string): Promise<AssetDetailType | null
 		return null;
 	} catch (e: any) {
 		throw new Error(e.message || 'Error fetching atomic asset');
+	}
+}
+
+export async function getAtomicAssets(args: { ids?: string[] }): Promise<AssetHeaderType[] | null> {
+
+	try {
+		const gqlResponse = await getGQLData({
+			gateway: GATEWAYS.arweave,
+			ids: args.ids ?? null,
+			tagFilters: null,
+			owners: null,
+			cursor: null,
+		});
+
+		if (gqlResponse && gqlResponse.data.length) {
+			return gqlResponse.data.map((element: GQLNodeResponseType) => buildAsset(element));
+		}
+
+		return null;
+	}
+
+	catch (e: any) {
+		throw new Error(e);
 	}
 }
 

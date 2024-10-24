@@ -1,10 +1,9 @@
-// TODO: Zone handler names
 export const AO = {
 	module: 'bkjb55i07GUCUSWROtKK4HU1mBS_X0TyH3M5jMV6aPg',
 	scheduler: '_GQ33BkPtZrqxA84vM8Zk-N2aO0toNNu_C-l-rawrBA',
 	src: {
 		asset: 'meNSj8psG3uQrV0Xcgo0NxeNqTmqg_Kthne8UuPhmSs',
-		zone: 'de_EO9oNs4wRRIY0eWiPUkFVcHOWtPvP1Hskzln7j_w'
+		zone: 'XA_SHusESXdFo-QcSgbOngF_bQkyTyGcDc3D795DSAk'
 	}
 };
 
@@ -22,8 +21,8 @@ export const GATEWAYS = {
 
 export const LICENSES = {
 	udl: {
-		address: 'dE0rmDfl9_OWjkDznNEXHaSO_JohJkRolvMzaCroUdw',
 		label: 'Universal Data License',
+		address: 'dE0rmDfl9_OWjkDznNEXHaSO_JohJkRolvMzaCroUdw'
 	},
 };
 
