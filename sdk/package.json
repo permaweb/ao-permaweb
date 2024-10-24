@@ -1,5 +1,5 @@
 {
-	"name": "@permaweb/sdk",
+	"name": "@permaweb/libs",
 	"version": "0.0.01",
 	"description": "",
 	"main": "dist/index.js",

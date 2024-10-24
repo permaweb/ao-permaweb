@@ -16,7 +16,7 @@ module.exports = {
 					{
 						groups: [
 							['^react', '^@?\\w'],
-							['^@permaweb/aoconnect', '^@permaweb/sdk', '^@?\\w'],
+							['^@permaweb/aoconnect', '^@permaweb/libs', '^@?\\w'],
 							[
 								'^(@|app)(/.*|$)',
 								'^(@|assets)(/.*|$)',

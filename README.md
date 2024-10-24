@@ -1,6 +1,6 @@
-# @permaweb/sdk
+# @permaweb/libs
 
-This is the home of multiple building blocks that can be used to develop applications on the permaweb. Interactions with these building blocks are available via **@permaweb/sdk**
+This is the home of multiple libraries designed as building blocks for developers to create and interact with applications on Arweave's permaweb. This SDK simplifies the process of working with atomic assets, profiles, collections, and more, enabling you to seamlessly build decentralized, permanent applications. With its versatile modules, you can manage digital items, represent entities, and carry out secure and trustless interactions on the permaweb. The SDK provides the flexibility and foundation needed to implement decentralized web applications effectively.
 
 ## Prerequisites
 
@@ -9,11 +9,11 @@ This is the home of multiple building blocks that can be used to develop applica
 
 ## Installation
 
-`npm install @permaweb/sdk`
+`npm install @permaweb/libs`
 
 or
 
-`yarn add @permaweb/sdk`
+`yarn add @permaweb/libs`
 
 ## Usage
 
@@ -21,19 +21,48 @@ or
 
 Zones are a representation of an entity which contains information relevant to that entity and can carry out actions on that entity's behalf.
 
-- `createZone()`
-- `getZone(ZoneProcessId)`
+#### `createZone`
+
+Creates a zone. ([View implementation](./sdk/src/services/zones.ts#L5))
+
+```typescript
+import { createZone } from '@permaweb/libs';
+
+const zoneId = await createZone(wallet, (status) => console.log(status));
+```
+
+**Response**
+
+```typescript
+ZoneProcessId
+```
+
+#### `getZone`
+
+Fetches a zone. ([View implementation](./sdk/src/services/zones.ts#L20))
+
+```typescript
+import { getZone } from '@permaweb/libs';
+
+const zone = await getZone(zoneId);
+```
+
+**Response**
+
+```typescript
+{ store: [], assets: [] }
+```
 
 ### Atomic Assets
 
 Atomic assets are unique digital item consisting of an AO process and its associated data which are stored together in a single transaction on Arweave.
 
-#### `createAtomicAsset({ Args })`
+#### `createAtomicAsset`
 
 Creates an atomic asset. ([View implementation](./sdk/src/services/assets.ts#L8))
 
 ```typescript
-import { createAtomicAsset } from '@permaweb/sdk';
+import { createAtomicAsset } from '@permaweb/libs';
 
 const assetId = await createAtomicAsset({
     title: 'Example Title',
@@ -42,7 +71,7 @@ const assetId = await createAtomicAsset({
     topics: ['Topic 1', 'Topic 2', 'Topic 3'],
     contentType: 'text/html',
     data: '1234'
-});
+}, wallet, (status) => console.log(status));
 ```
 
 **Response**
@@ -51,12 +80,12 @@ const assetId = await createAtomicAsset({
 AssetProcessId
 ```
 
-#### `getAtomicAsset(AssetProcessId)`
+#### `getAtomicAsset`
 
 Performs a lookup of an atomic asset by ID. This function also performs a dryrun on the asset process to receive the balances and other associated metadata of the atomic asset that is inside the AO process itself. ([View implementation](./sdk/src/services/assets.ts#L50))
 
 ```typescript
-import { getAtomicAsset } from "@permaweb/sdk";
+import { getAtomicAsset } from "@permaweb/libs";
 
 const asset = await getAtomicAsset(AssetTxId);
 ```
@@ -103,7 +132,7 @@ const asset = await getAtomicAsset(AssetTxId);
 Performs a lookup of atomic assets. ([View implementation](./sdk/src/services/assets.ts#L50))
 
 ```typescript
-import { getAtomicAssets } from "@permaweb/sdk";
+import { getAtomicAssets } from "@permaweb/libs";
 
 const assets = await getAtomicAssets({
   ids: ["AssetTxId1", "AssetTxId2", "AssetTxId3"],

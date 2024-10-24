@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@permaweb/sdk": "file:../.."
+    "@permaweb/libs": "file:../.."
   },
   "devDependencies": {
     "@types/node": "^22.7.9"
