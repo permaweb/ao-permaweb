@@ -87,7 +87,7 @@ Atomic assets are unique digital item consisting of an AO process and its associ
 
 #### `createAtomicAsset`
 
-Creates an atomic asset. ([View implementation](./sdk/src/services/assets.ts#L8))
+Creates an atomic asset. ([View implementation](./sdk/src/services/assets.ts#L11))
 
 ```typescript
 import { createAtomicAsset } from '@permaweb/libs';
@@ -110,7 +110,7 @@ AssetProcessId;
 
 #### `getAtomicAsset`
 
-Performs a lookup of an atomic asset by ID. This function also performs a dryrun on the asset process to receive the balances and other associated metadata of the atomic asset that is inside the AO process itself. ([View implementation](./sdk/src/services/assets.ts#L50))
+Performs a lookup of an atomic asset by ID. This function also performs a dryrun on the asset process to receive the balances and other associated metadata of the atomic asset that is inside the AO process itself. ([View implementation](./sdk/src/services/assets.ts#L61))
 
 ```typescript
 import { getAtomicAsset } from "@permaweb/libs";
@@ -155,9 +155,9 @@ const asset = await getAtomicAsset(AssetTxId);
 }
 ```
 
-#### `getAtomicAssets({ ids: AssetTxId[] })`
+#### `getAtomicAssets`
 
-Performs a lookup of atomic assets. ([View implementation](./sdk/src/services/assets.ts#L50))
+Performs a lookup of atomic assets. ([View implementation](./sdk/src/services/assets.ts#L128))
 
 ```typescript
 import { getAtomicAssets } from "@permaweb/libs";
